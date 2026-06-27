@@ -436,6 +436,12 @@ const Skins = (() => {
     // body (material-aware fill)
     rr(c, -bw / 2, bTop, bw, bh, Math.min(bw, bh) * 0.46);
     c.fillStyle = bodyPaint(c, tr, -bw / 2, bTop, bw, bh, s, L); c.fill();
+    // soft volume: top-left highlight + bottom ambient occlusion (clipped to body)
+    c.save(); c.beginPath(); rr(c, -bw / 2, bTop, bw, bh, Math.min(bw, bh) * 0.46); c.clip();
+    const hg = c.createRadialGradient(-bw * 0.16, bTop + bh * 0.22, bh * 0.08, -bw * 0.16, bTop + bh * 0.22, bh * 0.95);
+    hg.addColorStop(0, "#ffffff4a"); hg.addColorStop(0.62, "#ffffff00"); c.fillStyle = hg; c.fillRect(-bw / 2, bTop, bw, bh);
+    const ag = c.createLinearGradient(0, bTop + bh * 0.45, 0, bTop + bh); ag.addColorStop(0, "#00000000"); ag.addColorStop(1, "#00000030"); c.fillStyle = ag; c.fillRect(-bw / 2, bTop, bw, bh);
+    c.restore();
     c.lineWidth = 0.035 * S; c.strokeStyle = ink; c.stroke();
     if (M.sheen) { c.save(); c.shadowBlur = 0; c.fillStyle = "#ffffff66"; c.beginPath(); c.ellipse(-bw * 0.16, bTop + bh * 0.26, bw * 0.2, bh * 0.16, -0.5, 0, 7); c.fill(); c.restore(); }
 
@@ -451,12 +457,14 @@ const Skins = (() => {
     c.fillStyle = body; c.strokeStyle = ink; c.lineWidth = 0.03 * S;
     drawEars(c, tr, hx, hy, headR, body, dark, acc, ink, S);
     c.fillStyle = body; circle(c, hx, hy, headR); c.fill();
+    c.save(); c.beginPath(); c.arc(hx, hy, headR, 0, 7); c.clip(); const hh = c.createRadialGradient(hx - headR * 0.4, hy - headR * 0.42, headR * 0.1, hx - headR * 0.4, hy - headR * 0.42, headR * 1.5); hh.addColorStop(0, "#ffffff46"); hh.addColorStop(0.6, "#ffffff00"); c.fillStyle = hh; c.beginPath(); c.arc(hx, hy, headR, 0, 7); c.fill(); c.restore();
     c.lineWidth = 0.035 * S; c.strokeStyle = ink; c.stroke();
 
     // eyes + mouth
     const ex = hx + headR * 0.42, ey = hy - headR * 0.05;
-    drawEyes(c, tr, ex, ey, ink, S);
+    drawEyes(c, tr, ex, ey, ink, S, phase);
     drawMouth(c, tr, hx, hy, headR, ink, S);
+    if ((hashStr(tr.seed + "blush") & 3) === 0) { c.save(); c.globalAlpha = 0.4; c.fillStyle = "#ff7da6"; circle(c, ex - headR * 0.62, ey + headR * 0.34, headR * 0.16); c.fill(); circle(c, ex + headR * 0.18, ey + headR * 0.34, headR * 0.16); c.fill(); c.restore(); }
 
     // accessory
     drawAcc(c, tr, hx, hy, headR, bw, bh, bTop, ex, ey, acc, ink, S);
@@ -476,18 +484,20 @@ const Skins = (() => {
     else if (e === "fin") { c.fillStyle = acc; c.beginPath(); c.moveTo(hx - headR * .2, hy - headR * .8); c.lineTo(hx, hy - headR * 1.5); c.lineTo(hx + headR * .35, hy - headR * .7); c.closePath(); c.fill(); }
   }
 
-  function drawEyes(c, tr, ex, ey, ink, S) {
+  function drawEyes(c, tr, ex, ey, ink, S, phase) {
     const e = tr.eyes;
+    const blink = phase != null && ((phase * 0.37) % 5) < 0.12;   // occasional blink in-game
     if (e === "sleepy") { c.strokeStyle = ink; c.lineWidth = .04 * S; c.beginPath(); c.moveTo(ex - .05 * S, ey); c.lineTo(ex + .06 * S, ey); c.stroke(); c.beginPath(); c.moveTo(ex - .24 * S, ey); c.lineTo(ex - .13 * S, ey); c.stroke(); return; }
     if (e === "happy") { c.strokeStyle = ink; c.lineWidth = .045 * S; c.lineCap = "round"; [0, -.19].forEach(d => { c.beginPath(); c.arc(ex + d * S, ey + .02 * S, .06 * S, Math.PI * 1.15, Math.PI * 1.85); c.stroke(); }); return; }
     const er = e === "wide" ? .085 * S : e === "round" ? .07 * S : .055 * S;
-    const drawEye = (x, wink) => {
-      if (wink) { c.strokeStyle = ink; c.lineWidth = .045 * S; c.lineCap = "round"; c.beginPath(); c.moveTo(x - .05 * S, ey); c.lineTo(x + .05 * S, ey); c.stroke(); return; }
+    const drawEye = (x, closed) => {
+      if (closed) { c.strokeStyle = ink; c.lineWidth = .045 * S; c.lineCap = "round"; c.beginPath(); c.moveTo(x - .05 * S, ey); c.lineTo(x + .05 * S, ey); c.stroke(); return; }
       c.fillStyle = "#fff"; circle(c, x, ey, er); c.fill();
       c.fillStyle = ink; circle(c, x + er * .35, ey, er * .55); c.fill();
+      c.fillStyle = "#ffffffcc"; circle(c, x + er * .05, ey - er * .35, er * .26); c.fill();   // shine
     };
-    drawEye(ex, false);
-    drawEye(ex - .19 * S, e === "wink");
+    drawEye(ex, blink);
+    drawEye(ex - .19 * S, blink || e === "wink");
   }
 
   function drawAcc(c, tr, hx, hy, headR, bw, bh, bTop, ex, ey, acc, ink, S) {
@@ -1482,6 +1492,9 @@ function render() {
   for (const o of G.obstacles) drawObstacle(ctx, o);
   // particles
   drawFx(ctx);
+  // runner contact shadow (grounds the critter; fades as it jumps)
+  const shA = Math.max(0, 1 - (CFG.groundY - G.py) / 180);
+  ctx.save(); ctx.globalAlpha = 0.06 + 0.2 * shA; ctx.fillStyle = "#000"; ctx.beginPath(); ctx.ellipse(CFG.runnerX, CFG.groundY, CFG.S * 0.3 * (0.55 + 0.45 * shA), CFG.S * 0.08 * (0.55 + 0.45 * shA), 0, 0, 7); ctx.fill(); ctx.restore();
   // runner (squash on land / stretch in air)
   const tr = Skins.traits(save.equipped);
   const pose = (G.mode === "attract" || G.onGround) ? "run" : "jump";
