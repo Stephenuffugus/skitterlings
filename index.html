@@ -209,10 +209,14 @@
 <div class="screen" id="collScreen">
   <div class="scroll">
     <div class="sheet-head">
-      <h2>Skitterlings</h2>
-      <button class="icon-btn" data-close>✕</button>
+      <h2 id="collTitle">Skitterlings</h2>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div class="seg"><button id="segColl" class="on">Collection</button><button id="segDex">Skitterdex</button></div>
+        <button class="icon-btn" data-close>✕</button>
+      </div>
     </div>
-    <div class="muted" style="font-size:12px"><span id="collCount">0</span> collected. Tap to equip · ★ to favourite (top 3 pin to the menu).</div>
+    <div class="muted" id="collSub" style="font-size:12px"><span id="collCount">0</span> collected. Tap to equip · ★ to favourite (top 3 pin to the menu).</div>
+    <div id="dexBar" style="display:none;height:8px;border-radius:6px;background:var(--panel);border:1px solid var(--line);margin-top:8px;overflow:hidden"><div id="dexBarFill" style="height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--gold))"></div></div>
     <div class="grid" id="collGrid"></div>
     <div id="collMore" class="muted center" style="font-size:11px;margin-top:14px"></div>
   </div>
@@ -1135,7 +1139,20 @@ const SK_UID = SK_LAUNCH.get("uid") || null;     // host passes ?uid=... so each
 const SAVE_KEY = "skitterlings_save_v1" + (SK_UID ? ":" + SK_UID : "");
 function defaultSave() {
   return { coins: 0, best: 0, owned: ["starter"], equipped: "starter", favorites: [],
-           themes: [THEMES[0].id], theme: THEMES[0].id, muted: false, reached: 0 };
+           themes: [THEMES[0].id], theme: THEMES[0].id, muted: false, reached: 0,
+           dexClaimed: 0, dexComplete: false, bestCombo: 0 };
+}
+// how many of the 415 NAMED skitterlings the player has collected
+function dexCount() { return save.owned.reduce((n, s) => n + (ROSTER_BY_NAME[String(s).toLowerCase()] ? 1 : 0), 0); }
+// every 10 collected pays out; full dex is a grand prize
+function checkDexMilestones() {
+  const have = dexCount(), milestone = Math.floor(have / 10);
+  let claimed = save.dexClaimed || 0, granted = 0;
+  while (claimed < milestone) { claimed++; granted += 100; }
+  save.dexClaimed = claimed;
+  if (granted) { Wallet.earn(granted, "dex"); toast("Skitterdex " + (claimed * 10) + "! +" + granted + " coins"); }
+  if (have >= ROSTER.length && !save.dexComplete) { save.dexComplete = true; Wallet.earn(2000, "dex-complete"); pushBanner("SKITTERDEX COMPLETE!"); toast("All " + ROSTER.length + " collected! +2000 coins"); }
+  persist();
 }
 let save = Object.assign(defaultSave(), Store.get(SAVE_KEY, {}));
 // migrate / sanitize against current THEMES + ROSTER
@@ -1174,7 +1191,7 @@ const Sfx = (() => {
   return {
     resume: on,
     jump: () => blip(540, .12, "square", .05),
-    coin: () => { blip(880, .07, "triangle", .05); setTimeout(() => blip(1320, .09, "triangle", .045), 60); },
+    coin: (step) => { const pent = [0, 2, 4, 7, 9]; const s = step | 0; const semi = pent[s % 5] + 12 * (Math.floor(s / 5) % 3); const f = 740 * Math.pow(2, semi / 12); blip(f, .07, "triangle", .05); setTimeout(() => blip(f * 1.5, .08, "triangle", .04), 55); },
     stage: () => { blip(660, .1, "triangle", .05); setTimeout(() => blip(990, .14, "triangle", .05), 90); },
     hit:  () => { blip(160, .18, "sawtooth", .08); setTimeout(() => blip(90, .25, "sawtooth", .07), 70); }
   };
@@ -1396,10 +1413,16 @@ const G = {
   obstacles: [], coins: [], spawnIn: 0, coinAcc: 0, runCoins: 0,
   holdJump: false, coyoteT: 0, jumpBuf: 0,
   fx: [], shake: 0, squash: 0, banner: null, bannerT: 0,
+  combo: 0, comboT: 0, mult: 1, bestCombo: 0,
   chase: { state: "gone", x: 9999, t: 3, vx: 0, glance: 0 },
   stageIdx: 0, stageA: THEMES[0].id, stageB: THEMES[0].id, blend: 0, transitioning: false, stageNext: 0,
   maxStage: 0
 };
+function addCombo() {
+  G.combo++; G.comboT = 2.6; G.mult = Math.min(5, 1 + Math.floor(G.combo / 5));
+  if (G.combo > G.bestCombo) G.bestCombo = G.combo;
+  if (G.combo === 10 || G.combo === 25 || G.combo === 50 || (G.combo >= 100 && G.combo % 50 === 0)) { pushBanner(G.combo + "× COMBO!"); G.shake = Math.max(G.shake, 6); }
+}
 
 function applyStartWorld() {
   G.stageIdx = themeIndex(save.theme);
@@ -1412,6 +1435,7 @@ function reset() {
   G.obstacles = []; G.coins = []; G.spawnIn = 0.6; G.coinAcc = 0; G.runCoins = 0;
   G.holdJump = false; G.coyoteT = 0; G.jumpBuf = 0;
   G.fx = []; G.shake = 0; G.squash = 0; G.banner = null; G.bannerT = 0;
+  G.combo = 0; G.comboT = 0; G.mult = 1; G.bestCombo = 0;
   G.chase = { state: "gone", x: CFG.GW + 200, t: 2.5 + Math.random() * 2.5, vx: 0, glance: 0 };
   applyStartWorld();
 }
@@ -1547,19 +1571,26 @@ function update(dt) {
     if (!G.onGround) { G.onGround = true; G.coyoteT = CFG.coyote; landPuff(); G.squash = 1; if (G.jumpBuf > 0) doJump(true); }
   } else G.onGround = false;
 
+  if (G.comboT > 0) { G.comboT -= dt; if (G.comboT <= 0) { G.combo = 0; G.mult = 1; } }
   updateChase(dt);
   G.spawnIn -= dt; if (G.spawnIn <= 0) spawn();
-  for (const o of G.obstacles) { o.x -= G.speed * dt; if (o.kind === "fly") o.ph += dt * 14; }
+  const hb = hitbox();
+  for (const o of G.obstacles) {
+    o.x -= G.speed * dt; if (o.kind === "fly") o.ph += dt * 14;
+    if (!o.passed && o.x + o.w < CFG.runnerX) {           // near-miss: tight airborne clear -> combo + bonus
+      o.passed = true; const clr = o.y - (hb.y + hb.h);
+      if (!G.onGround && clr > 0 && clr < 30) { addCombo(); G.runCoins += G.mult; Sfx.coin(G.combo); for (let k = 0; k < 5; k++) fx(CFG.runnerX + 6, G.py - CFG.S * 0.4, 50 + Math.random() * 90, -20 - Math.random() * 50, 60, 0.4, 2.5, "#bff7ff", "spark"); }
+    }
+  }
   G.obstacles = G.obstacles.filter(o => o.x + o.w > -20);
 
   G.coinAcc += G.speed * dt;
   if (G.coinAcc >= CFG.coinEvery) { G.coinAcc -= CFG.coinEvery; G.runCoins++; }
   for (const c of G.coins) c.x -= G.speed * dt;
   G.coins = G.coins.filter(c => c.x > -20 && !c.got);
-  const hb = hitbox();
   for (const c of G.coins) {
     if (!c.got && hb.x < c.x + c.r && hb.x + hb.w > c.x - c.r && hb.y < c.y + c.r && hb.y + hb.h > c.y - c.r) {
-      c.got = true; G.runCoins++; Sfx.coin(); coinPop(c.x, c.y);
+      c.got = true; addCombo(); G.runCoins += G.mult; Sfx.coin(G.combo); coinPop(c.x, c.y);
     }
   }
   for (const o of G.obstacles) if (overlap(hb, o)) return gameOver();
@@ -1621,6 +1652,17 @@ function render() {
 
   ctx.restore(); // end shake
   drawLighting(ctx, th);
+  // combo / multiplier readout (skill feedback)
+  if (G.mode === "playing" && G.combo > 1) {
+    const pulse = 1 + 0.12 * Math.sin(G.clock * 18) * Math.min(1, G.comboT);
+    ctx.save(); ctx.textAlign = "center"; ctx.globalAlpha = Math.min(1, G.comboT * 2 + 0.4);
+    const cols = ["#eef2ff", "#9be8ff", "#5ce1e6", "#b07cff", "#ffce4a"];
+    ctx.fillStyle = cols[Math.min(4, G.mult - 1)];
+    ctx.font = "900 " + Math.round((26 + G.mult * 4) * pulse) + "px sans-serif";
+    ctx.fillText("×" + G.mult, CFG.GW - 64, 46);
+    ctx.fillStyle = "#cdd6ff"; ctx.font = "700 12px sans-serif"; ctx.fillText(G.combo + " combo", CFG.GW - 64, 62);
+    ctx.restore();
+  }
   drawBanner(ctx);
 }
 
@@ -1650,11 +1692,12 @@ function gameOver() {
   Sfx.hit(); G.mode = "over"; document.body.classList.remove("playing"); fitCanvas();
   Wallet.earn(G.runCoins, "run");                       // bank the run's coins (routes through the wallet seam)
   const best = G.score > save.best; if (best) save.best = G.score;
+  if (G.bestCombo > (save.bestCombo || 0)) save.bestCombo = G.bestCombo;
   unlockWorld(THEMES[G.maxStage].id);
   save.reached = Math.max(save.reached || 0, G.maxStage);
   persist();
   $("ovScore").textContent = G.score; $("ovBest").textContent = save.best; $("ovCoins").textContent = "+" + G.runCoins;
-  $("ovWorld").textContent = "Reached " + THEMES[G.maxStage].name;
+  $("ovWorld").textContent = "Reached " + THEMES[G.maxStage].name + (G.bestCombo >= 5 ? " · best " + G.bestCombo + "× combo" : "");
   newBest.style.display = best ? "block" : "none";
   show(overScreen);
   Bridge.emit("game-over", { score: G.score, best: save.best, coins: save.coins, world: THEMES[G.maxStage].id });
@@ -1694,18 +1737,43 @@ function makeCell(seed) {
   thumb(cvs, seed);
   return cell;
 }
+function makeLockedCell(r) {
+  const cell = document.createElement("div"); cell.className = "cell lock";
+  const cvs = document.createElement("canvas"); const c = cvs.getContext("2d"); cvs.width = 144; cvs.height = 144;
+  c.fillStyle = "#2c3760"; c.font = "bold 64px sans-serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText("?", 72, 70);
+  cell.appendChild(cvs);
+  const nm = document.createElement("div"); nm.className = "nm"; nm.textContent = "?????"; cell.appendChild(nm);
+  const tag = document.createElement("div"); tag.className = "tag"; tag.style.background = "#2c3760"; tag.style.color = "#9aa6d4"; tag.textContent = (r.biome || "?").slice(0, 1); cell.appendChild(tag);
+  return cell;
+}
+let collMode = "owned";
 function openCollection() {
+  checkDexMilestones();
   const grid = $("collGrid"); grid.innerHTML = "";
-  $("collCount").textContent = save.owned.length;
-  const rank = seed => Skins.traits(seed).rarIdx;
-  const order = save.owned.slice().sort((a, b) => {
-    const fa = isFav(a) ? 1 : 0, fb = isFav(b) ? 1 : 0; if (fa !== fb) return fb - fa;
-    const ra = rank(a), rb = rank(b); if (ra !== rb) return rb - ra;
-    return save.owned.indexOf(b) - save.owned.indexOf(a);   // newest first
-  });
-  const CAP = 300;   // keep open fast even with thousands collected (favourites + rarest + newest are first)
-  order.slice(0, CAP).forEach(seed => grid.appendChild(makeCell(seed)));
-  const more = $("collMore"); if (more) more.textContent = order.length > CAP ? ("+ " + (order.length - CAP) + " more — favourites, rarest and newest shown first") : "";
+  $("segColl").classList.toggle("on", collMode === "owned");
+  $("segDex").classList.toggle("on", collMode === "dex");
+  const more = $("collMore"), bar = $("dexBar");
+  if (collMode === "dex") {
+    const have = dexCount(), tot = ROSTER.length, pct = Math.round(have / tot * 100);
+    $("collTitle").textContent = "Skitterdex";
+    $("collSub").innerHTML = "<b>" + have + " / " + tot + "</b> named skitterlings found (" + pct + "%). Reward every 10!";
+    bar.style.display = "block"; $("dexBarFill").style.width = pct + "%";
+    ROSTER.forEach(r => grid.appendChild(save.owned.includes(r.name) ? makeCell(r.name) : makeLockedCell(r)));
+    if (more) more.textContent = "";
+  } else {
+    $("collTitle").textContent = "Skitterlings";
+    $("collSub").innerHTML = "<span id=\"collCount\">" + save.owned.length + "</span> collected. Tap to equip · ★ to favourite.";
+    bar.style.display = "none";
+    const rank = seed => Skins.traits(seed).rarIdx;
+    const order = save.owned.slice().sort((a, b) => {
+      const fa = isFav(a) ? 1 : 0, fb = isFav(b) ? 1 : 0; if (fa !== fb) return fb - fa;
+      const ra = rank(a), rb = rank(b); if (ra !== rb) return rb - ra;
+      return save.owned.indexOf(b) - save.owned.indexOf(a);
+    });
+    const CAP = 300;
+    order.slice(0, CAP).forEach(seed => grid.appendChild(makeCell(seed)));
+    if (more) more.textContent = order.length > CAP ? ("+ " + (order.length - CAP) + " more — favourites, rarest and newest shown first") : "";
+  }
   show(collScreen);
 }
 /* favourites quick-bar on the title screen (up to 3, tap to equip) */
@@ -1789,10 +1857,11 @@ function openHatch() {
   thumbBig($("hatchCanvas"), save.equipped, true); show(hatchScreen);
 }
 function nextRollSeed() {
-  // ~7% chance to surface an unowned curated "signature" critter, for delight
+  // ~50% chance to fill the Skitterdex with an unowned NAMED critter (so the
+  // 415-dex is an achievable goal), else a fresh procedural one for variety.
   const sig = ROSTER.filter(r => !save.owned.includes(r.name));
-  if (sig.length && Math.random() < 0.07) return sig[Math.floor(Math.random() * sig.length)].name;
-  // otherwise a fresh, never-before-seen procedural critter — no duplicates, ever
+  if (sig.length && Math.random() < 0.5) return sig[Math.floor(Math.random() * sig.length)].name;
+  // a fresh, never-before-seen procedural critter — no duplicates, ever
   let seed, guard = 0;
   do { seed = String(Math.floor(100000000000 + Math.random() * 899999999999)); } while (save.owned.includes(seed) && guard++ < 64);
   return seed;
@@ -1800,7 +1869,7 @@ function nextRollSeed() {
 function roll() {
   if (!Wallet.spend(ROLL_COST, "roll")) return toast("Need " + ROLL_COST + " coins");
   const seed = nextRollSeed();
-  const tr = Skins.traits(seed); save.owned.push(seed); rolledSeed = seed; persist();
+  const tr = Skins.traits(seed); save.owned.push(seed); rolledSeed = seed; persist(); checkDexMilestones();
   const c = $("hatchCanvas"); c.classList.remove("pop"); void c.offsetWidth; c.classList.add("pop");
   thumbBig(c, seed, false); Sfx.coin();
   $("hatchRar").innerHTML = `<div class="rar-pill" style="background:${tr.rarColor};color:#0e1326">${cap1(tr.material)} · ${tr.rarity}</div>`;
@@ -1813,7 +1882,9 @@ function roll() {
 $("playBtn").onclick = startRun;
 $("retryBtn").onclick = startRun;
 $("ovMenuBtn").onclick = toMenu;
-$("collectionBtn").onclick = openCollection;
+$("collectionBtn").onclick = () => { collMode = "owned"; openCollection(); };
+$("segColl").onclick = () => { collMode = "owned"; openCollection(); };
+$("segDex").onclick = () => { collMode = "dex"; openCollection(); };
 $("themesBtn").onclick = openThemes;
 $("hatchOpenBtn").onclick = openHatch;
 $("ovHatchBtn").onclick = () => { hide(overScreen); openHatch(); };
