@@ -226,7 +226,7 @@
     <div id="hatchLabel" class="center muted">Spend coins to roll a brand-new skitterling.<br>Every one has its own name &amp; rarity.</div>
     <div id="hatchRar"></div>
     <div class="menu-btns" style="margin-top:6px">
-      <button class="btn" id="rollBtn">ROLL · <span class="price"><span class="coin"></span>100</span></button>
+      <button class="btn" id="rollBtn">ROLL · <span class="price"><span class="coin"></span>120</span></button>
       <button class="btn alt" id="equipRolledBtn" style="display:none">Equip</button>
       <button class="btn ghost favreveal" id="favRolledBtn" style="display:none">☆ Add to Favourites</button>
     </div>
@@ -763,7 +763,280 @@ const ROSTER = [
   {"name":"Pollenpuff","biome":"Verdant Meadows","blurb":"Trails glitter through tall grass"},
   {"name":"Taffwick","biome":"Candy Coast","blurb":"Stretches into sugary ribbons"},
   {"name":"Bublik","biome":"Sunken Reef","blurb":"Blows iridescent pearl bubbles"},
-  {"name":"Mosslet","biome":"Deep Forest","blurb":"Wears a velvet fern cap"}
+  {"name":"Mosslet","biome":"Deep Forest","blurb":"Wears a velvet fern cap"},
+  {"name":"Pipwhistle","biome":"Verdant Meadows","blurb":"Hums to wake the dewdrops"},
+  {"name":"Tindlebop","biome":"Verdant Meadows","blurb":"Bounces on clover all day"},
+  {"name":"Snorbit","biome":"Verdant Meadows","blurb":"Snorts petals when it giggles"},
+  {"name":"Wuffletuft","biome":"Verdant Meadows","blurb":"Collects fallen feathers very shyly"},
+  {"name":"Periwink","biome":"Verdant Meadows","blurb":"Winks at every passing bee"},
+  {"name":"Cloverknock","biome":"Verdant Meadows","blurb":"Headbutts dandelions for luck"},
+  {"name":"Zibblenook","biome":"Synthwave Grid","blurb":"Beeps a tiny neon lullaby"},
+  {"name":"Cobblefluff","biome":"Dust Mesa","blurb":"Rolls into a dusty ball"},
+  {"name":"Tuftknock","biome":"Verdant Meadows","blurb":"Bumps heads to say hello"},
+  {"name":"Dewberry","biome":"Verdant Meadows","blurb":"Smells of sweet morning rain"},
+  {"name":"Snugglethorn","biome":"Deep Forest","blurb":"Prickly but loves long hugs"},
+  {"name":"Marblemew","biome":"Sunken Reef","blurb":"Purrs in tiny bubble streams"},
+  {"name":"Frostnibble","biome":"Frostpeak","blurb":"Nibbles icicles for breakfast daily"},
+  {"name":"Emberpuff","biome":"Ember Depths","blurb":"Hiccups little harmless sparks"},
+  {"name":"Bumbleknit","biome":"Verdant Meadows","blurb":"Knits scarves from meadow grass"},
+  {"name":"Sprocketwink","biome":"Iron Foundry","blurb":"Ticks like a happy clock"},
+  {"name":"Lumiglow","biome":"Celestial Spire","blurb":"Carries starlight in its tummy"},
+  {"name":"Puddlenook","biome":"Verdant Meadows","blurb":"Splashes in every tiny puddle"},
+  {"name":"Gobblequill","biome":"Deep Forest","blurb":"Hoards shiny beetle wings greedily"},
+  {"name":"Taffywobble","biome":"Candy Coast","blurb":"Wobbles when overly excited"},
+  {"name":"Quibblefluff","biome":"Verdant Meadows","blurb":"Argues sweetly with passing butterflies"},
+  {"name":"Mistlebean","biome":"Frostpeak","blurb":"Shivers into cozy little snowballs"},
+  {"name":"Cinderbean","biome":"Ember Depths","blurb":"Warm as a pocket coal"},
+  {"name":"Pebblepop","biome":"Dust Mesa","blurb":"Pops up from sandy burrows"},
+  {"name":"Nimblewick","biome":"Verdant Meadows","blurb":"Darts through tall grass blades"},
+  {"name":"Driftbloom","biome":"Sunken Reef","blurb":"Floats along with jellyfish friends"},
+  {"name":"Sprinkletoe","biome":"Candy Coast","blurb":"Trails rainbow nonpareils everywhere"},
+  {"name":"Gumdrabble","biome":"Candy Coast","blurb":"Chews gummy pebbles, never shares"},
+  {"name":"Tafflewisp","biome":"Candy Coast","blurb":"Stretchy when shy, springs back grinning"},
+  {"name":"Nougatine","biome":"Candy Coast","blurb":"Soft-hearted, hoards chewy secrets"},
+  {"name":"Fizzwick","biome":"Candy Coast","blurb":"Pops with soda-pop giggles"},
+  {"name":"Lollibun","biome":"Candy Coast","blurb":"Round, swirly, perpetually licking"},
+  {"name":"Caramooch","biome":"Candy Coast","blurb":"Sticky cuddler, hard to release"},
+  {"name":"Peppermitt","biome":"Candy Coast","blurb":"Cool breath, warm tiny heart"},
+  {"name":"Drazzleberry","biome":"Candy Coast","blurb":"Juicy, dazzling, easily distracted"},
+  {"name":"Sherbunny","biome":"Candy Coast","blurb":"Frosty hops, melts when happy"},
+  {"name":"Choccobble","biome":"Candy Coast","blurb":"Lumpy, melty, hugs back warmly"},
+  {"name":"Twirlpop","biome":"Candy Coast","blurb":"Spins until dizzy, falls giggling"},
+  {"name":"Saltifluff","biome":"Candy Coast","blurb":"Sweet-salty, surprisingly philosophical"},
+  {"name":"Mintwhistle","biome":"Verdant Meadows","blurb":"Toots fresh tunes through ears"},
+  {"name":"Brackleburr","biome":"Deep Forest","blurb":"Prickly outside, marshmallow within"},
+  {"name":"Hollowknock","biome":"Deep Forest","blurb":"Taps trees seeking lost echoes"},
+  {"name":"Snowmuffin","biome":"Frostpeak","blurb":"Warm bun, dusted in flurries"},
+  {"name":"Cindertot","biome":"Ember Depths","blurb":"Tiny, toasty, leaves ash footprints"},
+  {"name":"Emberkin","biome":"Ember Depths","blurb":"Glows brighter when complimented"},
+  {"name":"Bubbletide","biome":"Sunken Reef","blurb":"Hiccups pearls, blushes seafoam pink"},
+  {"name":"Coralollie","biome":"Sunken Reef","blurb":"Sways gently, hums underwater lullabies"},
+  {"name":"Dustmop","biome":"Dust Mesa","blurb":"Tumbles across canyons, collecting tumbleweeds"},
+  {"name":"Cactuddle","biome":"Dust Mesa","blurb":"Wants hugs, regrets them instantly"},
+  {"name":"Cogswuddle","biome":"Iron Foundry","blurb":"Ticks softly, naps inside gears"},
+  {"name":"Neonibble","biome":"Synthwave Grid","blurb":"Pixelates when startled, beeps cutely"},
+  {"name":"Starmite","biome":"Celestial Spire","blurb":"Collects fallen stardust in pockets"},
+  {"name":"Thornnip","biome":"Deep Forest","blurb":"Shy bark-dweller who hoards acorns"},
+  {"name":"Fernwhisk","biome":"Deep Forest","blurb":"Tickles sleepy roots awake at dawn"},
+  {"name":"Mossgrub","biome":"Deep Forest","blurb":"Naps beneath glowing fallen logs"},
+  {"name":"Hollowick","biome":"Deep Forest","blurb":"Lantern-eyed, guides lost beetles home"},
+  {"name":"Spriglet","biome":"Deep Forest","blurb":"Sprouts a fresh leaf each spring"},
+  {"name":"Owlfluff","biome":"Deep Forest","blurb":"Hoots tiny lullabies at midnight"},
+  {"name":"Toadwumple","biome":"Deep Forest","blurb":"Bounces between dewy mushroom caps"},
+  {"name":"Barkbuckle","biome":"Deep Forest","blurb":"Knocks politely on hollow trees"},
+  {"name":"Glimmoth","biome":"Deep Forest","blurb":"Dusts its wings with starlight"},
+  {"name":"Rootle","biome":"Deep Forest","blurb":"Burrows giggling through soft soil"},
+  {"name":"Vinkle","biome":"Deep Forest","blurb":"Swings on ivy, never letting go"},
+  {"name":"Pinepuff","biome":"Deep Forest","blurb":"Smells of warm sticky sap"},
+  {"name":"Drizzlewort","biome":"Deep Forest","blurb":"Collects dewdrops in cupped paws"},
+  {"name":"Snufflebur","biome":"Deep Forest","blurb":"Sniffs out hidden forest truffles"},
+  {"name":"Cobnook","biome":"Deep Forest","blurb":"Builds twig forts under ferns"},
+  {"name":"Mistlepaw","biome":"Deep Forest","blurb":"Wanders foggy glades humming softly"},
+  {"name":"Bubblenook","biome":"Sunken Reef","blurb":"Blows pearly little bubble forts"},
+  {"name":"Tartwick","biome":"Candy Coast","blurb":"Sticky-pawed lollipop thief, always grinning"},
+  {"name":"Cindersnap","biome":"Ember Depths","blurb":"Hiccups tiny harmless sparks"},
+  {"name":"Bytewick","biome":"Synthwave Grid","blurb":"Hums softly in pixelated neon"},
+  {"name":"Mesabit","biome":"Dust Mesa","blurb":"Tumbles along like a happy weed"},
+  {"name":"Boltnut","biome":"Iron Foundry","blurb":"Tightens loose screws for fun"},
+  {"name":"Starwink","biome":"Celestial Spire","blurb":"Winks back at falling stars"},
+  {"name":"Coralfizz","biome":"Sunken Reef","blurb":"Fizzes brightly whenever it laughs"},
+  {"name":"Gumdrizzle","biome":"Candy Coast","blurb":"Drips sweet syrupy grins everywhere"},
+  {"name":"Sundapple","biome":"Verdant Meadows","blurb":"Dapples meadows with soft light"},
+  {"name":"Vaporbit","biome":"Synthwave Grid","blurb":"Drifts through pixel sunsets dreaming"},
+  {"name":"Glitchki","biome":"Synthwave Grid","blurb":"Hiccups in pink static bursts"},
+  {"name":"Synthloaf","biome":"Synthwave Grid","blurb":"A bean of pure bassline"},
+  {"name":"Pixiboo","biome":"Synthwave Grid","blurb":"Boots up with a sleepy chirp"},
+  {"name":"Retrowix","biome":"Synthwave Grid","blurb":"Hums forgotten arcade lullabies softly"},
+  {"name":"Gridlet","biome":"Synthwave Grid","blurb":"Skitters along glowing laser lines"},
+  {"name":"Lazurl","biome":"Synthwave Grid","blurb":"Trails violet light when bouncing"},
+  {"name":"Bytefluff","biome":"Synthwave Grid","blurb":"Stores snacks in tiny memory"},
+  {"name":"Chromble","biome":"Synthwave Grid","blurb":"Shimmers every color at once"},
+  {"name":"Hologrump","biome":"Synthwave Grid","blurb":"Flickers when feeling a bit moody"},
+  {"name":"Wavelo","biome":"Synthwave Grid","blurb":"Rides neon ripples all night"},
+  {"name":"Mosspip","biome":"Verdant Meadows","blurb":"Naps inside dewy clover cups"},
+  {"name":"Cobblewink","biome":"Verdant Meadows","blurb":"Winks at passing ladybugs"},
+  {"name":"Taffub","biome":"Candy Coast","blurb":"Sticky paws, stickier hugs"},
+  {"name":"Snorbark","biome":"Deep Forest","blurb":"Snores loud enough to rustle leaves"},
+  {"name":"Tindlewood","biome":"Deep Forest","blurb":"Carries a tiny acorn lantern"},
+  {"name":"Chillop","biome":"Frostpeak","blurb":"Slides downhill on its belly"},
+  {"name":"Emberknot","biome":"Ember Depths","blurb":"Curls into a warm glowing coal"},
+  {"name":"Cindermuff","biome":"Ember Depths","blurb":"Puffs cozy sparks when content"},
+  {"name":"Dustwick","biome":"Dust Mesa","blurb":"Tumbleweeds along on stubby legs"},
+  {"name":"Cactabean","biome":"Dust Mesa","blurb":"Prickly outside, marshmallow within"},
+  {"name":"Boltnub","biome":"Iron Foundry","blurb":"Sparks when it gets excited"},
+  {"name":"Starlimb","biome":"Celestial Spire","blurb":"Counts comets to fall asleep"},
+  {"name":"Twinklump","biome":"Celestial Spire","blurb":"Hums starlight into tiny tunes"},
+  {"name":"Snopuff","biome":"Frostpeak","blurb":"Rolls downhill giggling endlessly"},
+  {"name":"Mittlewink","biome":"Frostpeak","blurb":"Always loses one tiny mitten"},
+  {"name":"Crystoot","biome":"Frostpeak","blurb":"Toots crystalline snowflake notes"},
+  {"name":"Shiverbun","biome":"Frostpeak","blurb":"Trembling warm-hearted snow bunny"},
+  {"name":"Puffrost","biome":"Frostpeak","blurb":"Breath fogs into little hearts"},
+  {"name":"Iglooble","biome":"Frostpeak","blurb":"Builds tiny snow forts nightly"},
+  {"name":"Tindlefrost","biome":"Frostpeak","blurb":"Sparks frost from cold antennae"},
+  {"name":"Whimfrost","biome":"Frostpeak","blurb":"Daydreams of warmer meadows"},
+  {"name":"Chillywick","biome":"Frostpeak","blurb":"Glowing nose lights blizzards"},
+  {"name":"Floofsnow","biome":"Frostpeak","blurb":"Impossibly fluffy, never cold"},
+  {"name":"Brrindle","biome":"Frostpeak","blurb":"Shivers, then giggles bravely on"},
+  {"name":"Peppermip","biome":"Frostpeak","blurb":"Smells faintly of candy cane"},
+  {"name":"Snickerfrost","biome":"Frostpeak","blurb":"Sneaky snowball-throwing prankster"},
+  {"name":"Wuffleberg","biome":"Frostpeak","blurb":"Tiny iceberg with floppy ears"},
+  {"name":"Pixelnub","biome":"Synthwave Grid","blurb":"Blinks in neon pixels"},
+  {"name":"Cactunkle","biome":"Dust Mesa","blurb":"Prickly outside, squishy heart"},
+  {"name":"Thornlet","biome":"Deep Forest","blurb":"Hides beneath fern shadows"},
+  {"name":"Lumibean","biome":"Celestial Spire","blurb":"Softly glows in starlight"},
+  {"name":"Cindermite","biome":"Ember Depths","blurb":"Naps inside warm coal pockets"},
+  {"name":"Emberpip","biome":"Ember Depths","blurb":"Hiccups tiny harmless sparks"},
+  {"name":"Sootbun","biome":"Ember Depths","blurb":"Soft, smudgy, endlessly cuddly"},
+  {"name":"Magmunch","biome":"Ember Depths","blurb":"Chews glowing rocks like candy"},
+  {"name":"Flickle","biome":"Ember Depths","blurb":"Flickers when feeling shy"},
+  {"name":"Charcoot","biome":"Ember Depths","blurb":"Grumpy until properly toasted"},
+  {"name":"Brimwick","biome":"Ember Depths","blurb":"Hums beside molten streams"},
+  {"name":"Smolden","biome":"Ember Depths","blurb":"Slow, warm, eternally drowsy"},
+  {"name":"Pyrobble","biome":"Ember Depths","blurb":"Bubbles with cheerful heat"},
+  {"name":"Tindersnug","biome":"Ember Depths","blurb":"Loves the coziest cinder nests"},
+  {"name":"Coalcozy","biome":"Ember Depths","blurb":"Keeps friends toasty overnight"},
+  {"name":"Glimcoal","biome":"Ember Depths","blurb":"Winks with a faint ember glow"},
+  {"name":"Frizzlefrost","biome":"Frostpeak","blurb":"Shivers into adorable sparkles"},
+  {"name":"Gummibub","biome":"Candy Coast","blurb":"Bounces on chewy shores"},
+  {"name":"Taffywick","biome":"Candy Coast","blurb":"Stretches when overly excited"},
+  {"name":"Zibble","biome":"Synthwave Grid","blurb":"Glows in neon pixel bursts"},
+  {"name":"Wuffle","biome":"Sunken Reef","blurb":"Drifts blowing bubble rings"},
+  {"name":"Cactunk","biome":"Dust Mesa","blurb":"Prickly outside, soft heart"},
+  {"name":"Boltnip","biome":"Iron Foundry","blurb":"Collects loose shiny screws"},
+  {"name":"Starnubbin","biome":"Celestial Spire","blurb":"Naps on drifting moonbeams"},
+  {"name":"Bubbleby","biome":"Sunken Reef","blurb":"Hiccups iridescent bubbles when shy"},
+  {"name":"Coralune","biome":"Sunken Reef","blurb":"Glows softly at moontide"},
+  {"name":"Snorkel","biome":"Sunken Reef","blurb":"Always first to dive in"},
+  {"name":"Pearlpip","biome":"Sunken Reef","blurb":"Hoards shiny seabed treasures"},
+  {"name":"Wobblefin","biome":"Sunken Reef","blurb":"Swims in dizzy little loops"},
+  {"name":"Glimmershell","biome":"Sunken Reef","blurb":"Wears a borrowed sparkly shell"},
+  {"name":"Plonkton","biome":"Sunken Reef","blurb":"Tiniest critter, biggest appetite"},
+  {"name":"Murkle","biome":"Sunken Reef","blurb":"Shy dweller of dim trenches"},
+  {"name":"Anemonkey","biome":"Sunken Reef","blurb":"Wiggly arms, ticklish giggles"},
+  {"name":"Floonder","biome":"Sunken Reef","blurb":"Drifts sideways, perpetually confused"},
+  {"name":"Brinekin","biome":"Sunken Reef","blurb":"Tastes faintly of salty kisses"},
+  {"name":"Reefling","biome":"Sunken Reef","blurb":"Hatched among rainbow coral"},
+  {"name":"Squidget","biome":"Sunken Reef","blurb":"Inks tiny doodles when startled"},
+  {"name":"Lullabuoy","biome":"Sunken Reef","blurb":"Hums sailors gently to sleep"},
+  {"name":"Pebblurp","biome":"Sunken Reef","blurb":"Burps up smooth river stones"},
+  {"name":"Finickle","biome":"Sunken Reef","blurb":"Picky about its plankton snacks"},
+  {"name":"Cresta","biome":"Sunken Reef","blurb":"Rides every passing wave joyfully"},
+  {"name":"Gummadew","biome":"Candy Coast","blurb":"Sticky paws, sweeter heart"},
+  {"name":"Taffypop","biome":"Candy Coast","blurb":"Stretches into silly long shapes"},
+  {"name":"Voltpuff","biome":"Synthwave Grid","blurb":"Crackles with ticklish static"},
+  {"name":"Duskmote","biome":"Dust Mesa","blurb":"Naps in warm canyon shadows"},
+  {"name":"Sandwhisk","biome":"Dust Mesa","blurb":"Sweeps trails with bushy tail"},
+  {"name":"Pebblop","biome":"Dust Mesa","blurb":"Hoards smooth river stones"},
+  {"name":"Cactufluff","biome":"Dust Mesa","blurb":"Prickly outside, squishy heart"},
+  {"name":"Mirajig","biome":"Dust Mesa","blurb":"Dances toward shimmering mirages"},
+  {"name":"Grittle","biome":"Dust Mesa","blurb":"Burrows under sun-baked clay"},
+  {"name":"Tumblenook","biome":"Dust Mesa","blurb":"Rolls along with the wind"},
+  {"name":"Quillby","biome":"Dust Mesa","blurb":"Twitchy ears, curious nose"},
+  {"name":"Ochrebean","biome":"Dust Mesa","blurb":"Glows soft amber at dusk"},
+  {"name":"Wickabit","biome":"Dust Mesa","blurb":"Tiny, swift, always grinning"},
+  {"name":"Buttescoot","biome":"Dust Mesa","blurb":"Scuttles up red rock spires"},
+  {"name":"Drizzlebop","biome":"Dust Mesa","blurb":"Celebrates the rare desert rain"},
+  {"name":"Snickerdune","biome":"Dust Mesa","blurb":"Giggles inside rolling sand piles"},
+  {"name":"Coyolet","biome":"Dust Mesa","blurb":"Howls the tiniest little yip"},
+  {"name":"Pricklepuff","biome":"Dust Mesa","blurb":"Soft spines, softer cuddles"},
+  {"name":"Mesquitle","biome":"Dust Mesa","blurb":"Smells faintly of warm bark"},
+  {"name":"Gulchwiggle","biome":"Dust Mesa","blurb":"Wiggles through dry stream beds"},
+  {"name":"Sunbristle","biome":"Dust Mesa","blurb":"Fur sparkles in noon light"},
+  {"name":"Clompet","biome":"Dust Mesa","blurb":"Stubby hooves, big ambitions"},
+  {"name":"Vermiglow","biome":"Ember Depths","blurb":"Pulses warm coal-red light"},
+  {"name":"Glimwort","biome":"Deep Forest","blurb":"Sprouts mushrooms when happy"},
+  {"name":"Bytepip","biome":"Synthwave Grid","blurb":"Blinks in neon rhythm"},
+  {"name":"Bramblenook","biome":"Verdant Meadows","blurb":"Hides treats in tall grass"},
+  {"name":"Cinderloaf","biome":"Iron Foundry","blurb":"Toasty, dusted in soft ash"},
+  {"name":"Stellawink","biome":"Celestial Spire","blurb":"Winks back at the stars"},
+  {"name":"Pollentoe","biome":"Verdant Meadows","blurb":"Leaves golden footprints everywhere"},
+  {"name":"Quartzling","biome":"Dust Mesa","blurb":"Collects glittery cave crystals"},
+  {"name":"Boltnib","biome":"Iron Foundry","blurb":"Hoards shiny screws in cheeks."},
+  {"name":"Gribbet","biome":"Iron Foundry","blurb":"Naps inside warm gear teeth."},
+  {"name":"Sproketta","biome":"Iron Foundry","blurb":"Spins when she gets excited."},
+  {"name":"Clompkin","biome":"Iron Foundry","blurb":"Stomps with adorable clanky feet."},
+  {"name":"Rustle","biome":"Iron Foundry","blurb":"Squeaks softly, needs a hug."},
+  {"name":"Wrenchwick","biome":"Iron Foundry","blurb":"Tightens loose bolts while you sleep."},
+  {"name":"Forgemunk","biome":"Iron Foundry","blurb":"Glows orange when feeling cozy."},
+  {"name":"Pingle","biome":"Iron Foundry","blurb":"Dings happily off metal walls."},
+  {"name":"Cogswaddle","biome":"Iron Foundry","blurb":"Wraps itself in copper wire."},
+  {"name":"Smelterling","biome":"Iron Foundry","blurb":"Melts grumpiness with warm hums."},
+  {"name":"Tinkwobble","biome":"Iron Foundry","blurb":"Wobbles but never falls down."},
+  {"name":"Anvilpuff","biome":"Iron Foundry","blurb":"Tiny but surprisingly very heavy."},
+  {"name":"Nutmeg Gear","biome":"Iron Foundry","blurb":"Smells faintly of warm oil."},
+  {"name":"Solderbean","biome":"Iron Foundry","blurb":"Fixes broken toys with droolspit."},
+  {"name":"Pistonpip","biome":"Iron Foundry","blurb":"Puffs steam from button nose."},
+  {"name":"Taffeta","biome":"Candy Coast","blurb":"Stretches into sweet pink loops."},
+  {"name":"Slagsworth","biome":"Iron Foundry","blurb":"Distinguished gentleman of molten manners."},
+  {"name":"Rivetina","biome":"Iron Foundry","blurb":"Counts every bolt twice nightly."},
+  {"name":"Bellowsby","biome":"Iron Foundry","blurb":"Breathes warm air on cold paws."},
+  {"name":"Gleamcog","biome":"Iron Foundry","blurb":"Polishes itself to mirror shine."},
+  {"name":"Quenchlet","biome":"Iron Foundry","blurb":"Sips cool water with steamy sighs."},
+  {"name":"Astrelle","biome":"Celestial Spire","blurb":"Naps among drifting stardust"},
+  {"name":"Twinksy","biome":"Celestial Spire","blurb":"Hiccups tiny silver sparkles"},
+  {"name":"Cometuft","biome":"Celestial Spire","blurb":"Trails a fluffy stardust tail"},
+  {"name":"Orblet","biome":"Celestial Spire","blurb":"Rolls between floating moons"},
+  {"name":"Skywick","biome":"Celestial Spire","blurb":"Lights the way at dusk"},
+  {"name":"Nebufluff","biome":"Celestial Spire","blurb":"Soft as a purple cloud"},
+  {"name":"Glimmoon","biome":"Celestial Spire","blurb":"Collects moonbeams in its ears"},
+  {"name":"Starnip","biome":"Celestial Spire","blurb":"Nibbles tiny constellations"},
+  {"name":"Auralune","biome":"Celestial Spire","blurb":"Hums soft cosmic lullabies"},
+  {"name":"Wishkle","biome":"Celestial Spire","blurb":"Grants very small wishes"},
+  {"name":"Spirkle","biome":"Celestial Spire","blurb":"Spins atop the tallest tower"},
+  {"name":"Halobit","biome":"Celestial Spire","blurb":"Wears a wobbly little halo"},
+  {"name":"Dazzlewink","biome":"Celestial Spire","blurb":"Blinks in dazzling rainbow flashes"},
+  {"name":"Cloudmuffin","biome":"Celestial Spire","blurb":"Floats like a fluffy pastry"},
+  {"name":"Zephyrl","biome":"Celestial Spire","blurb":"Rides gentle high-altitude breezes"},
+  {"name":"Sparrowl","biome":"Verdant Meadows","blurb":"Tiny owl with sparrow cheeks"},
+  {"name":"Taffwig","biome":"Candy Coast","blurb":"Stretches like warm taffy"},
+  {"name":"Mosswick","biome":"Deep Forest","blurb":"Sprouts ferns when sleepy"},
+  {"name":"Pixelpip","biome":"Synthwave Grid","blurb":"Glitches into neon giggles"},
+  {"name":"Voltkin","biome":"Synthwave Grid","blurb":"Crackles with retro energy"},
+  {"name":"Cindernook","biome":"Ember Depths","blurb":"Warms cold paws kindly"},
+  {"name":"Cogbit","biome":"Iron Foundry","blurb":"Tinkers with spare little gears"},
+  {"name":"Dewhop","biome":"Verdant Meadows","blurb":"Bounces on morning grass beads"},
+  {"name":"Pollywick","biome":"Verdant Meadows","blurb":"Sneezes glittering flower pollen"},
+  {"name":"Tufflenob","biome":"Verdant Meadows","blurb":"Hoards dandelion fluff proudly"},
+  {"name":"Snibbet","biome":"Verdant Meadows","blurb":"Tiny, shy, hums to bees"},
+  {"name":"Gramblewig","biome":"Verdant Meadows","blurb":"Wears a wig of clover"},
+  {"name":"Miremuffin","biome":"Verdant Meadows","blurb":"Squishy, smells of fresh hay"},
+  {"name":"Wobblewort","biome":"Verdant Meadows","blurb":"Topples over chasing grasshoppers"},
+  {"name":"Buttercrumb","biome":"Verdant Meadows","blurb":"Leaves golden petal crumbs everywhere"},
+  {"name":"Nubbinsprig","biome":"Verdant Meadows","blurb":"Sprouts a stubborn little leaf"},
+  {"name":"Fennick","biome":"Verdant Meadows","blurb":"Quick ears, quicker giggles"},
+  {"name":"Hummock","biome":"Verdant Meadows","blurb":"Pretends to be a tiny hill"},
+  {"name":"Cricklepuff","biome":"Verdant Meadows","blurb":"Chirps lullabies at dusk"},
+  {"name":"Sprigglet","biome":"Deep Forest","blurb":"Hides beneath curling fern fronds"},
+  {"name":"Mosskin","biome":"Deep Forest","blurb":"Soft green coat, sleepy eyes"},
+  {"name":"Acorbble","biome":"Deep Forest","blurb":"Wears an acorn as a hat"},
+  {"name":"Twiglow","biome":"Deep Forest","blurb":"Glows faintly among dim roots"},
+  {"name":"Embolt","biome":"Ember Depths","blurb":"Hiccups tiny harmless sparks"},
+  {"name":"Cindernib","biome":"Ember Depths","blurb":"Glows orange when excited"},
+  {"name":"Dustimble","biome":"Dust Mesa","blurb":"Tumbles across the warm sand"},
+  {"name":"Starbleat","biome":"Celestial Spire","blurb":"Bleats softly at twinkling stars"},
+  {"name":"Taffytot","biome":"Candy Coast","blurb":"Stretches into giggly pink ribbons"},
+  {"name":"Sherbright","biome":"Candy Coast","blurb":"Fizzes with fruity sunrise sparkle"},
+  {"name":"Lollibop","biome":"Candy Coast","blurb":"Bounces on a swirled stick"},
+  {"name":"Fudgenugg","biome":"Candy Coast","blurb":"Warm, gooey, endlessly huggable"},
+  {"name":"Caramew","biome":"Candy Coast","blurb":"Purrs in buttery golden loops"},
+  {"name":"Jellywink","biome":"Candy Coast","blurb":"Wobbles and winks shyly"},
+  {"name":"Plumfizz","biome":"Candy Coast","blurb":"Pops with violet bubblegum joy"},
+  {"name":"Nougatnub","biome":"Candy Coast","blurb":"Chewy little hider in dunes"},
+  {"name":"Cottonpip","biome":"Candy Coast","blurb":"Floats on spun-sugar breezes"},
+  {"name":"Bonbonk","biome":"Candy Coast","blurb":"Headbutts you with sweet love"},
+  {"name":"Peppermew","biome":"Candy Coast","blurb":"Cool minty breath, warm heart"},
+  {"name":"Driblet","biome":"Candy Coast","blurb":"Leaves a trail of honey"},
+  {"name":"Fernbubble","biome":"Verdant Meadows","blurb":"Hums among the clover tufts"},
+  {"name":"Dewlick","biome":"Verdant Meadows","blurb":"Sips morning dew at dawn"},
+  {"name":"Bramblet","biome":"Deep Forest","blurb":"Naps inside hollow acorn caps"},
+  {"name":"Thornwink","biome":"Deep Forest","blurb":"Peeks from shadowed bramble nooks"},
+  {"name":"Glitchnip","biome":"Synthwave Grid","blurb":"Blinks in neon pixel static"},
+  {"name":"Voltwuff","biome":"Synthwave Grid","blurb":"Zaps tiny synth-pop sparks"},
+  {"name":"Frostbun","biome":"Frostpeak","blurb":"Rolls into a snowy dumpling"},
+  {"name":"Snowtuft","biome":"Frostpeak","blurb":"Sneezes glittering icy flakes"},
+  {"name":"Pearlpod","biome":"Sunken Reef","blurb":"Naps in an opal shell"},
+  {"name":"Duskmite","biome":"Dust Mesa","blurb":"Skitters across warm red sand"},
+  {"name":"Boltwidget","biome":"Iron Foundry","blurb":"Tinkers with stray brass cogs"}
   /*__ROSTER_END__*/
 ];
 const ROSTER_BY_NAME = {};
@@ -787,7 +1060,7 @@ function nameFor(seed) {
 const charName = nameFor;
 
 const themeById = id => THEMES.find(t => t.id === id) || THEMES[0];
-const priceOf = idx => idx < 3 ? 0 : Math.round(40 + idx * 6);
+const priceOf = idx => idx < 3 ? 0 : Math.round(60 + idx * 8);
 const themeIndex = id => { const i = THEMES.findIndex(t => t.id === id); return i < 0 ? 0 : i; };
 
 /* ---- 6. SAVE / WALLET --------------------------------------------------- */
@@ -932,21 +1205,111 @@ function flyLeaf(c, o) { const cy = o.y + o.h * .5, sw = Math.sin(o.ph) * .4; c.
 function flyGhost(c, o) { const cy = o.y + o.h * .5; c.fillStyle = o.fly; c.globalAlpha *= .85; c.beginPath(); c.arc(o.x + o.w * .5, cy, o.h * .34, Math.PI, 0); const bot = cy + o.h * .34; c.lineTo(o.x + o.w * .5 + o.h * .34, bot); for (let i = 0; i < 4; i++) { const x = o.x + o.w * .5 + o.h * .34 - (i + 0.5) * (o.h * .68 / 4); c.lineTo(x, bot + (i % 2 ? -o.h * .12 : o.h * .06)); } c.closePath(); c.fill(); c.globalAlpha /= .85; c.fillStyle = "#0e1326"; c.beginPath(); c.arc(o.x + o.w * .42, cy, 2.6, 0, 7); c.arc(o.x + o.w * .58, cy, 2.6, 0, 7); c.fill(); }
 
 const FLY = { bird: flyBird, bat: flyBat, drone: flyDrone, jelly: flyJelly, leaf: flyLeaf, ghost: flyGhost };
+
+// luminance + auto edge so obstacles ALWAYS read against the background
+function lum(hex) { const p = (hex || "").match(/[\da-f]{2}/gi); if (!p) return 0.5; return (0.2126 * parseInt(p[0], 16) + 0.7152 * parseInt(p[1], 16) + 0.0722 * parseInt(p[2], 16)) / 255; }
+function edgeFor(th) { return th.obEdge || (lum(th.sky1 || th.sky0) < 0.46 ? "#eef3ff" : "#0c1020"); }
+// "sticker" outline: redraw the silhouette in edge colour at offsets, then the real fill on top
+function outlineDraw(c, o, drawFn, edge) {
+  const tmp = Object.assign({}, o, { ob: edge, line: edge, accent: edge, fly: edge });
+  const r = Math.max(2, (o.w || 30) * 0.045);
+  const offs = [[-r, 0], [r, 0], [0, -r], [0, r], [-r, -r], [r, -r], [-r, r], [r, r]];
+  for (let i = 0; i < offs.length; i++) { c.save(); c.translate(offs[i][0], offs[i][1]); drawFn(c, tmp); c.restore(); }
+  drawFn(c, o);
+}
 function drawObstacle(c, o) {
   c.save();
   try {
-    if (o.kind === "fly") { c.shadowColor = "rgba(0,0,0,.35)"; c.shadowBlur = 4; (FLY[o.style] || flyBird)(c, o); }  // soft outline for contrast vs same-hue skies
-    else (OB[o.style] || obBlock)(c, o);
+    const edge = o.edge || "#0c1020";
+    if (o.kind === "fly") {
+      outlineDraw(c, o, (cc, oo) => (FLY[oo.style] || flyBird)(cc, oo), edge);
+    } else {
+      c.fillStyle = "rgba(0,0,0,0.20)"; c.beginPath(); c.ellipse(o.x + o.w / 2, CFG.groundY, o.w * 0.55, Math.max(3, o.h * 0.10), 0, 0, 7); c.fill();
+      outlineDraw(c, o, (cc, oo) => (OB[oo.style] || obBlock)(cc, oo), edge);
+    }
   } catch (e) { c.fillStyle = o.ob || "#888"; c.fillRect(o.x + o.w * .3, o.y, o.w * .4, o.h); }
   c.restore();
+}
+
+/* ----- 8d. JUICE: particles, weather, ground decor, lighting, banner ----- */
+function fx(x, y, vx, vy, g, life, size, color, shape) { if (G.fx.length > 260) return; G.fx.push({ x, y, vx, vy, g, life, max: life, size, color, shape: shape || "dot" }); }
+function dustPuff() { for (let i = 0; i < 5; i++) fx(CFG.runnerX - 6 + Math.random() * 8, CFG.groundY - 2, -60 - Math.random() * 80, -20 - Math.random() * 40, 60, 0.35 + Math.random() * 0.2, 3 + Math.random() * 3, "#ffffff", "puff"); }
+function landPuff() { for (let i = 0; i < 8; i++) fx(CFG.runnerX - 10 + Math.random() * 20, CFG.groundY - 2, (Math.random() * 2 - 1) * 130, -10 - Math.random() * 30, 80, 0.3 + Math.random() * 0.2, 3 + Math.random() * 4, "#ffffff", "puff"); }
+function coinPop(x, y) { for (let i = 0; i < 8; i++) { const a = Math.random() * 6.283; fx(x, y, Math.cos(a) * 120, Math.sin(a) * 120 - 40, 120, 0.4 + Math.random() * 0.3, 2 + Math.random() * 2, "#ffe17a", "spark"); } }
+function hitBurst(x, y) { for (let i = 0; i < 20; i++) { const a = Math.random() * 6.283, sp = 90 + Math.random() * 240; fx(x, y, Math.cos(a) * sp, Math.sin(a) * sp, 200, 0.4 + Math.random() * 0.45, 2 + Math.random() * 4, i % 2 ? "#ff6b6b" : "#ffffff", "spark"); } G.shake = 11; }
+function updateFx(dt) {
+  for (const p of G.fx) { p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; }
+  if (G.fx.length) G.fx = G.fx.filter(p => p.life > 0);
+  if (G.shake > 0) { G.shake -= dt * 42; if (G.shake < 0) G.shake = 0; }
+  if (G.squash > 0) { G.squash -= dt * 5.5; if (G.squash < 0) G.squash = 0; }
+  if (G.bannerT > 0) G.bannerT -= dt;
+}
+function drawFx(c) {
+  for (const p of G.fx) { const a = Math.max(0, p.life / p.max); c.globalAlpha = a; c.fillStyle = p.color; c.beginPath(); c.arc(p.x, p.y, p.shape === "puff" ? p.size * (0.6 + a * 0.8) : p.size, 0, 7); c.fill(); }
+  c.globalAlpha = 1;
+}
+function pushBanner(text) { G.banner = text; G.bannerT = 2.4; }
+function drawBanner(c) {
+  if (G.bannerT <= 0 || !G.banner) return;
+  const t = G.bannerT, a = t > 2.0 ? (2.4 - t) / 0.4 : Math.min(1, t / 0.6);
+  c.save(); c.textAlign = "center";
+  const w = Math.min(CFG.GW * 0.72, 90 + G.banner.length * 15);
+  c.globalAlpha = a * 0.9; c.fillStyle = "#0e1326"; rrect(c, CFG.GW / 2 - w / 2, 38, w, 46, 12); c.fill();
+  c.globalAlpha = a; c.fillStyle = "#ffce4a"; c.font = "700 11px sans-serif"; c.fillText("NOW ENTERING", CFG.GW / 2, 55);
+  c.fillStyle = "#eef2ff"; c.font = "800 22px sans-serif"; c.fillText(G.banner, CFG.GW / 2, 78);
+  c.restore();
+}
+function drawWeather(c, th) {
+  const w = th.weather; if (!w || w === "none") return;
+  const t = G.clock, W = CFG.GW, gy = CFG.groundY; c.save();
+  if (w === "rain") { c.strokeStyle = "#bcd8ff"; c.globalAlpha = 0.5; c.lineWidth = 2; for (let i = 0; i < 60; i++) { const x = (i * 53 + t * 600) % W, y = (i * 97 + t * 900) % gy; c.beginPath(); c.moveTo(x, y); c.lineTo(x - 6, y + 14); c.stroke(); } }
+  else if (w === "snow") { c.fillStyle = "#ffffff"; c.globalAlpha = 0.85; for (let i = 0; i < 50; i++) { const x = (i * 73 + Math.sin(t + i) * 20 + t * 40) % W, y = (i * 61 + t * 70) % gy; c.beginPath(); c.arc(x, y, 1.8 + (i % 3), 0, 7); c.fill(); } }
+  else if (w === "embers") { c.fillStyle = th.accent || "#ffae42"; for (let i = 0; i < 40; i++) { const x = (i * 89 + Math.sin(t * 2 + i) * 12) % W, y = gy - ((i * 53 + t * 90) % gy); c.globalAlpha = 0.7 * (y / gy); c.beginPath(); c.arc(x, y, 1.5 + (i % 2), 0, 7); c.fill(); } }
+  else if (w === "petals") { c.fillStyle = th.accent || "#ff9ecb"; c.globalAlpha = 0.85; for (let i = 0; i < 34; i++) { const x = (i * 97 + Math.sin(t + i) * 30 + t * 60) % W, y = (i * 71 + t * 55) % gy; c.save(); c.translate(x, y); c.rotate(t + i); c.beginPath(); c.ellipse(0, 0, 4, 2.2, 0, 0, 7); c.fill(); c.restore(); } }
+  else if (w === "leaves") { c.fillStyle = th.line || "#7a9a4a"; c.globalAlpha = 0.8; for (let i = 0; i < 26; i++) { const x = (i * 123 + Math.sin(t * 1.3 + i) * 40 + t * 70) % W, y = (i * 83 + t * 45) % gy; c.save(); c.translate(x, y); c.rotate(t * 2 + i); c.beginPath(); c.ellipse(0, 0, 5, 2.4, 0, 0, 7); c.fill(); c.restore(); } }
+  else if (w === "bubbles") { c.strokeStyle = "#ffffff"; c.globalAlpha = 0.5; c.lineWidth = 1.5; for (let i = 0; i < 30; i++) { const x = (i * 101 + Math.sin(t * 1.5 + i) * 16) % W, y = gy - ((i * 67 + t * 80) % gy); c.beginPath(); c.arc(x, y, 2 + (i % 4), 0, 7); c.stroke(); } }
+  else if (w === "fireflies") { for (let i = 0; i < 26; i++) { const x = (i * 111 + Math.sin(t * 0.7 + i) * 40) % W, y = 80 + ((i * 53) % (gy - 100)) + Math.sin(t + i) * 12; c.globalAlpha = 0.4 + 0.6 * Math.abs(Math.sin(t * 2 + i)); c.fillStyle = th.accent || "#ffe66d"; c.beginPath(); c.arc(x, y, 2, 0, 7); c.fill(); } }
+  else if (w === "ash") { c.fillStyle = "#cac6c0"; c.globalAlpha = 0.6; for (let i = 0; i < 44; i++) { const x = (i * 67 + Math.sin(t + i) * 16 + t * 20) % W, y = (i * 59 + t * 40) % gy; c.beginPath(); c.arc(x, y, 1.5, 0, 7); c.fill(); } }
+  else if (w === "sparkles") { for (let i = 0; i < 30; i++) { const x = (i * 139) % W, y = (i * 83) % gy; c.globalAlpha = Math.abs(Math.sin(t * 3 + i)); c.fillStyle = "#ffffff"; c.fillRect(x, y, 2, 2); } }
+  else if (w === "fog" || w === "mist") { c.fillStyle = th.fog || "#ffffff"; for (let l = 0; l < 3; l++) { c.globalAlpha = 0.06 + 0.04 * l; const off = (t * (10 + l * 8)) % 200; for (let i = -1; i < 6; i++) { const x = i * 200 - off; c.beginPath(); c.ellipse(x + 100, gy - 40 - l * 30, 130, 26, 0, 0, 7); c.fill(); } } }
+  c.restore();
+}
+function drawDecor(c, th) {
+  const d = th.decor; if (!d || d === "none") return;
+  const gy = CFG.groundY, sp = 140, off = G.dist % sp, acc = th.accent || "#fff", ln = th.line || "#666";
+  c.save();
+  for (let i = -1; i < Math.ceil(CFG.GW / sp) + 1; i++) {
+    const x = i * sp - off + ((i * 53) % 40);
+    if (d === "grass" || d === "reeds") { c.strokeStyle = ln; c.lineWidth = 2; const hh = d === "reeds" ? 26 : 12; for (let b = -2; b <= 2; b++) { c.beginPath(); c.moveTo(x + b * 3, gy); c.quadraticCurveTo(x + b * 3 + b, gy - hh, x + b * 4, gy - hh - 2); c.stroke(); } }
+    else if (d === "flowers") { c.strokeStyle = ln; c.lineWidth = 2; c.beginPath(); c.moveTo(x, gy); c.lineTo(x, gy - 12); c.stroke(); c.fillStyle = acc; c.beginPath(); c.arc(x, gy - 14, 3.5, 0, 7); c.fill(); }
+    else if (d === "rocks" || d === "pebbles") { c.fillStyle = ln; c.beginPath(); c.ellipse(x, gy - 3, 7, 4, 0, Math.PI, 0); c.fill(); c.beginPath(); c.ellipse(x + 10, gy - 2, 4, 3, 0, Math.PI, 0); c.fill(); }
+    else if (d === "crystals") { c.fillStyle = acc; c.beginPath(); c.moveTo(x, gy); c.lineTo(x + 3, gy - 12); c.lineTo(x + 6, gy); c.closePath(); c.fill(); }
+    else if (d === "mushrooms") { c.fillStyle = "#eadfce"; c.fillRect(x - 1, gy - 8, 3, 8); c.fillStyle = acc; c.beginPath(); c.ellipse(x, gy - 8, 6, 4, 0, Math.PI, 0); c.fill(); }
+    else if (d === "coral") { c.strokeStyle = acc; c.lineWidth = 3; c.lineCap = "round"; c.beginPath(); c.moveTo(x, gy); c.lineTo(x, gy - 12); c.moveTo(x, gy - 6); c.lineTo(x - 5, gy - 12); c.moveTo(x, gy - 8); c.lineTo(x + 5, gy - 13); c.stroke(); }
+    else if (d === "gears") { c.strokeStyle = ln; c.lineWidth = 3; c.beginPath(); c.arc(x, gy - 7, 5, 0, 7); c.stroke(); }
+    else if (d === "bones") { c.strokeStyle = "#e6e2d8"; c.lineWidth = 4; c.lineCap = "round"; c.beginPath(); c.moveTo(x - 6, gy - 3); c.lineTo(x + 6, gy - 3); c.stroke(); }
+    else if (d === "lanterns") { c.fillStyle = acc; c.globalAlpha = 0.9; c.beginPath(); c.arc(x, gy - 14, 5, 0, 7); c.fill(); c.globalAlpha = 1; c.strokeStyle = ln; c.lineWidth = 2; c.beginPath(); c.moveTo(x, gy - 9); c.lineTo(x, gy); c.stroke(); }
+  }
+  c.restore();
+}
+function drawLighting(c, th) {
+  const tod = th.timeOfDay || "day";
+  let tint = null, ta = 0;
+  if (tod === "dawn") { tint = "#ff9e6d"; ta = 0.10; }
+  else if (tod === "dusk") { tint = "#5b3a8c"; ta = 0.16; }
+  else if (tod === "night") { tint = "#0a1230"; ta = 0.28; }
+  if (tint) { c.save(); c.globalAlpha = ta; c.fillStyle = tint; c.fillRect(0, 0, CFG.GW, CFG.GH); c.restore(); }
+  const g = c.createRadialGradient(CFG.GW / 2, CFG.GH * 0.45, CFG.GH * 0.3, CFG.GW / 2, CFG.GH * 0.5, CFG.GW * 0.72);
+  g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,0,0,0.22)");
+  c.save(); c.fillStyle = g; c.fillRect(0, 0, CFG.GW, CFG.GH); c.restore();
 }
 
 /* ---- 9. GAME ------------------------------------------------------------ */
 const CFG = {
   GW: 960, GH: 300, groundY: 250, runnerX: 130, S: 64,
   gravity: 2600, jumpV: -980, jumpCut: 0.42, coyote: 0.09, buffer: 0.13,
-  speed0: 340, speedMax: 780, speedRamp: 0.52,
-  coinEvery: 90, flyAfter: 220,
+  speed0: 340, speedMax: 800, speedRamp: 0.55,
+  coinEvery: 420, flyAfter: 200,          // coinEvery↑ = slower passive trickle (coins were too easy)
   stageLen: 240, stageFade: 2.0
 };
 const cv = document.getElementById("game"), ctx = cv.getContext("2d");
@@ -965,6 +1328,7 @@ const G = {
   phase: 0, clock: 0, dist: 0, score: 0, speed: CFG.speed0,
   obstacles: [], coins: [], spawnIn: 0, coinAcc: 0, runCoins: 0,
   holdJump: false, coyoteT: 0, jumpBuf: 0,
+  fx: [], shake: 0, squash: 0, banner: null, bannerT: 0,
   stageIdx: 0, stageA: THEMES[0].id, stageB: THEMES[0].id, blend: 0, transitioning: false, stageNext: 0,
   maxStage: 0
 };
@@ -979,13 +1343,14 @@ function reset() {
   G.phase = 0; G.dist = 0; G.score = 0; G.speed = CFG.speed0;
   G.obstacles = []; G.coins = []; G.spawnIn = 0.6; G.coinAcc = 0; G.runCoins = 0;
   G.holdJump = false; G.coyoteT = 0; G.jumpBuf = 0;
+  G.fx = []; G.shake = 0; G.squash = 0; G.banner = null; G.bannerT = 0;
   applyStartWorld();
 }
 
 function doJump(buffered) {
   // a buffered jump has no held button, so it must NOT be cut by a later release
   G.vy = CFG.jumpV; G.onGround = false; G.coyoteT = 0; G.holdJump = !buffered; G.jumpBuf = 0;
-  Sfx.jump();
+  dustPuff(); Sfx.jump();
 }
 function jump() {
   Sfx.resume();
@@ -999,23 +1364,23 @@ function jumpRelease() { if (G.holdJump && G.vy < 0) G.vy *= CFG.jumpCut; G.hold
 function activeTheme() { return themeById(G.blend < 0.5 ? G.stageA : G.stageB); }
 
 function spawn() {
-  const at = activeTheme();
+  const at = activeTheme(), edge = edgeFor(at);
   const useFly = G.score > CFG.flyAfter && Math.random() < 0.34;
   if (useFly) {
     const h = 0.30 * CFG.S, w = 0.6 * CFG.S;
     const bottom = CFG.groundY - 0.04 * CFG.S;      // low band: must hop, always clearable
     G.obstacles.push({ kind: "fly", x: CFG.GW + 40, y: bottom - h, w, h, ph: 0,
-      style: at.flyStyle, fly: at.fly, line: at.line, accent: at.accent });
+      style: at.flyStyle, fly: at.fly, line: at.line, accent: at.accent, edge });
   } else {
     const cluster = Math.random() < 0.22 ? 2 : Math.random() < 0.09 ? 3 : 1;
     const unit = 0.24 * CFG.S, h = (0.5 + Math.random() * 0.42) * CFG.S;
     const w = unit * cluster + 0.12 * CFG.S;
     G.obstacles.push({ kind: "ground", x: CFG.GW + 40, y: CFG.groundY - h, w, h,
-      style: at.obStyle, ob: at.ob, line: at.line, accent: at.accent });
+      style: at.obStyle, ob: at.ob, line: at.line, accent: at.accent, edge });
   }
-  if (Math.random() < 0.55) {
+  if (Math.random() < 0.5) {                 // fewer coin drops — collecting is the skill now
     const cy = CFG.groundY - (0.5 + Math.random() * 0.9) * CFG.S;
-    const n = 1 + (Math.random() < 0.4 ? 1 : 0) + (Math.random() < 0.2 ? 1 : 0);
+    const n = 1 + (Math.random() < 0.3 ? 1 : 0);
     for (let i = 0; i < n; i++) G.coins.push({ x: CFG.GW + 160 + i * 30, y: cy - i * 8, r: 8, got: false });
   }
   const gap = (0.95 + Math.random() * 0.5) * (G.speed / CFG.speed0 * 0.7 + 0.3);
@@ -1030,7 +1395,7 @@ function hitbox() {
 const overlap = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
 function update(dt) {
-  G.clock += dt;
+  G.clock += dt; updateFx(dt);
   if (G.mode === "attract") { G.phase += dt * 9; G.dist += 120 * dt; return; }
   if (G.mode !== "playing") return;
 
@@ -1047,7 +1412,7 @@ function update(dt) {
     if (G.blend >= 1) {
       G.blend = 0; G.transitioning = false; G.stageIdx++; G.stageA = G.stageB;
       G.stageNext += CFG.stageLen; if (G.stageIdx > G.maxStage) G.maxStage = G.stageIdx;
-      unlockWorld(THEMES[G.stageIdx].id);
+      unlockWorld(THEMES[G.stageIdx].id); pushBanner(THEMES[G.stageIdx].name);
     }
   }
 
@@ -1057,7 +1422,7 @@ function update(dt) {
   if (G.jumpBuf > 0) G.jumpBuf -= dt;
   if (G.py >= CFG.groundY) {
     G.py = CFG.groundY; G.vy = 0;
-    if (!G.onGround) { G.onGround = true; G.coyoteT = CFG.coyote; if (G.jumpBuf > 0) doJump(true); }
+    if (!G.onGround) { G.onGround = true; G.coyoteT = CFG.coyote; landPuff(); G.squash = 1; if (G.jumpBuf > 0) doJump(true); }
   } else G.onGround = false;
 
   G.spawnIn -= dt; if (G.spawnIn <= 0) spawn();
@@ -1071,7 +1436,7 @@ function update(dt) {
   const hb = hitbox();
   for (const c of G.coins) {
     if (!c.got && hb.x < c.x + c.r && hb.x + hb.w > c.x - c.r && hb.y < c.y + c.r && hb.y + hb.h > c.y - c.r) {
-      c.got = true; G.runCoins++; Sfx.coin();
+      c.got = true; G.runCoins++; Sfx.coin(); coinPop(c.x, c.y);
     }
   }
   for (const o of G.obstacles) if (overlap(hb, o)) return gameOver();
@@ -1084,33 +1449,51 @@ function lerpC(a, b, t) {
   return "#" + pa.map((v, i) => Math.round(v + (pb[i] - v) * t).toString(16).padStart(2, "0")).join("");
 }
 function render() {
-  const A = themeById(G.stageA), B = themeById(G.stageB), bl = G.blend;
+  const A = themeById(G.stageA), B = themeById(G.stageB), bl = G.blend, th = activeTheme();
   ctx.setTransform(scale, 0, 0, scale, 0, 0);
   ctx.clearRect(0, 0, CFG.GW, CFG.GH);
+  const shx = G.shake ? (Math.random() * 2 - 1) * G.shake : 0, shy = G.shake ? (Math.random() * 2 - 1) * G.shake : 0;
+  ctx.save(); ctx.translate(shx, shy);
+
   const sky0 = lerpC(A.sky0, B.sky0, bl), sky1 = lerpC(A.sky1, B.sky1, bl);
   const lineC = lerpC(A.line, B.line, bl), groundC = lerpC(A.ground, B.ground, bl);
   const g = ctx.createLinearGradient(0, 0, 0, CFG.groundY);
   g.addColorStop(0, sky0); g.addColorStop(1, sky1);
-  ctx.fillStyle = g; ctx.fillRect(0, 0, CFG.GW, CFG.GH);
+  ctx.fillStyle = g; ctx.fillRect(-14, -14, CFG.GW + 28, CFG.groundY + 14);
+  // horizon glow
+  if (A.skyGlow || B.skyGlow) { const glow = lerpC(A.skyGlow || A.sky1, B.skyGlow || B.sky1, bl); const gg = ctx.createLinearGradient(0, CFG.groundY - 90, 0, CFG.groundY); gg.addColorStop(0, "rgba(0,0,0,0)"); gg.addColorStop(1, glow); ctx.save(); ctx.globalAlpha = 0.45; ctx.fillStyle = gg; ctx.fillRect(0, CFG.groundY - 90, CFG.GW, 90); ctx.restore(); }
   // sun / moon
   const starAlpha = (A.star ? 1 - bl : 0) + (B.star ? bl : 0);
   ctx.globalAlpha = 0.85; ctx.fillStyle = starAlpha > 0.5 ? "#f3f1ff" : "#fff4cf";
   ctx.beginPath(); ctx.arc(CFG.GW - 150, 70, 30, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
-  if (starAlpha > 0.01) { ctx.fillStyle = "#ffffff"; ctx.globalAlpha = starAlpha * 0.8; for (let i = 0; i < 30; i++) { const x = (i * 137) % CFG.GW, y = (i * 71) % (CFG.groundY - 40); ctx.fillRect(x, y, 2, 2); } ctx.globalAlpha = 1; }
-  // parallax crossfade
+  if (starAlpha > 0.01) { ctx.fillStyle = "#ffffff"; ctx.globalAlpha = starAlpha * 0.8; for (let i = 0; i < 36; i++) { const x = (i * 137) % CFG.GW, y = (i * 71) % (CFG.groundY - 40); ctx.fillRect(x, y, 2, 2); } ctx.globalAlpha = 1; }
+  // parallax crossfade + weather
   drawParallax(ctx, A, 1 - bl); drawParallax(ctx, B, bl);
-  // ground
-  ctx.fillStyle = groundC; ctx.fillRect(0, CFG.groundY, CFG.GW, CFG.GH - CFG.groundY);
+  drawWeather(ctx, th);
+  // ground (+ texture stripe)
+  ctx.fillStyle = groundC; ctx.fillRect(-14, CFG.groundY, CFG.GW + 28, CFG.GH - CFG.groundY + 14);
+  if (A.ground2 || B.ground2) { ctx.save(); ctx.globalAlpha = 0.5; ctx.fillStyle = lerpC(A.ground2 || A.ground, B.ground2 || B.ground, bl); const tk = G.dist % 48; for (let x = -tk; x < CFG.GW; x += 48) ctx.fillRect(x, CFG.groundY + 18, 24, 4); ctx.restore(); }
   ctx.strokeStyle = lineC; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0, CFG.groundY); ctx.lineTo(CFG.GW, CFG.groundY); ctx.stroke();
   const tick = G.dist % 40; ctx.fillStyle = lineC; for (let x = -tick; x < CFG.GW; x += 40) ctx.fillRect(x, CFG.groundY + 12, 14, 3);
-  // coins
-  for (const c of G.coins) { if (c.got) continue; ctx.fillStyle = "#ffce4a"; ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, 7); ctx.fill(); ctx.fillStyle = "#b88600"; ctx.beginPath(); ctx.arc(c.x - 2, c.y - 2, c.r * 0.5, 0, 7); ctx.fill(); }
+  drawDecor(ctx, th);
+  // coins (bob)
+  for (const c of G.coins) { if (c.got) continue; const yy = c.y + Math.sin(G.clock * 6 + c.x * 0.05) * 2; ctx.fillStyle = "#ffce4a"; ctx.beginPath(); ctx.arc(c.x, yy, c.r, 0, 7); ctx.fill(); ctx.fillStyle = "#b88600"; ctx.beginPath(); ctx.arc(c.x - 2, yy - 2, c.r * 0.5, 0, 7); ctx.fill(); }
   // obstacles
   for (const o of G.obstacles) drawObstacle(ctx, o);
-  // runner
+  // particles
+  drawFx(ctx);
+  // runner (squash on land / stretch in air)
   const tr = Skins.traits(save.equipped);
   const pose = (G.mode === "attract" || G.onGround) ? "run" : "jump";
-  Skins.draw(ctx, tr, CFG.runnerX, G.py, CFG.S, pose, G.phase);
+  let sx = 1, sy = 1;
+  if (G.squash > 0) { const q = Math.min(1, G.squash); sx = 1 + 0.22 * q; sy = 1 - 0.22 * q; }
+  else if (!G.onGround && G.mode === "playing") { const st = Math.min(0.2, Math.abs(G.vy) / 3200); sx = 1 - st * 0.6; sy = 1 + st; }
+  ctx.save(); ctx.translate(CFG.runnerX, G.py); ctx.scale(sx, sy); ctx.translate(-CFG.runnerX, -G.py);
+  Skins.draw(ctx, tr, CFG.runnerX, G.py, CFG.S, pose, G.phase); ctx.restore();
+
+  ctx.restore(); // end shake
+  drawLighting(ctx, th);
+  drawBanner(ctx);
 }
 
 /* ---------- loop ---------- */
@@ -1131,9 +1514,11 @@ function startRun() {
   reset(); G.mode = "playing"; document.body.classList.add("playing"); fitCanvas();
   hide(titleScreen); hide(overScreen);
   hint.style.display = "block"; setTimeout(() => hint.style.display = "none", 1400);
+  pushBanner(themeById(save.theme).name);
   Bridge.emit("run-start", { world: save.theme });
 }
 function gameOver() {
+  hitBurst(CFG.runnerX, G.py - CFG.S * 0.4);
   Sfx.hit(); G.mode = "over"; document.body.classList.remove("playing"); fitCanvas();
   Wallet.earn(G.runCoins, "run");                       // bank the run's coins (routes through the wallet seam)
   const best = G.score > save.best; if (best) save.best = G.score;
@@ -1257,7 +1642,7 @@ function openThemes() {
 }
 
 /* ----- vault / roll ----- */
-const ROLL_COST = 100; let rolledSeed = null;
+const ROLL_COST = 120; let rolledSeed = null;
 const cap1 = s => String(s).charAt(0).toUpperCase() + String(s).slice(1);
 function thumbBig(canvas, seed, idle) {
   const c = canvas.getContext("2d"); canvas.width = 200; canvas.height = 200; c.clearRect(0, 0, 200, 200);
@@ -1283,7 +1668,7 @@ function nextRollSeed() {
   return seed;
 }
 function roll() {
-  if (!Wallet.spend(ROLL_COST, "roll")) return toast("Need 100 coins");
+  if (!Wallet.spend(ROLL_COST, "roll")) return toast("Need " + ROLL_COST + " coins");
   const seed = nextRollSeed();
   const tr = Skins.traits(seed); save.owned.push(seed); rolledSeed = seed; persist();
   const c = $("hatchCanvas"); c.classList.remove("pop"); void c.offsetWidth; c.classList.add("pop");
