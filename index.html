@@ -1,0 +1,1476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0e1326">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="description" content="Skitterlings — a one-button endless runner. Hop your critter through 100 themed worlds and collect hundreds of skitterlings.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<title>Skitterlings</title>
+<style>
+  :root{
+    --bg:#0e1326; --panel:#161d36; --panel2:#1f2845; --line:#2c3760;
+    --ink:#eef2ff; --muted:#9aa6d4; --gold:#ffce4a; --cyan:#5ce1e6; --pink:#ff6ea9;
+    --good:#46d39a; --bad:#ff6b6b; --epic:#b07cff;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    overscroll-behavior:none; user-select:none; -webkit-user-select:none}
+  #app{position:fixed;inset:0;display:flex;flex-direction:column}
+
+  /* ---- Top HUD ---- */
+  #hud{display:flex;align-items:center;justify-content:space-between;
+    padding:max(10px,env(safe-area-inset-top)) 14px 8px;gap:10px;flex:0 0 auto;z-index:4}
+  .badge{display:flex;align-items:center;gap:6px;background:var(--panel);
+    border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:700}
+  .coin{width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff3c0,var(--gold));
+    box-shadow:0 0 0 2px #b8860020 inset}
+  .score-wrap{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    font-variant-numeric:tabular-nums;text-align:center;line-height:1}
+  .score-wrap .s{font-size:22px;font-weight:800;letter-spacing:1px}
+  .score-wrap .l{font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;max-width:42vw;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .icon-btn{width:34px;height:34px;border-radius:10px;background:var(--panel);
+    border:1px solid var(--line);color:var(--ink);font-size:14px;display:grid;place-items:center;cursor:pointer}
+  .icon-btn:active{transform:scale(.94)}
+
+  /* ---- Stage ---- */
+  #stage{position:relative;flex:1 1 auto;display:flex;align-items:center;justify-content:center;min-height:0}
+  #game{width:100%;height:100%;display:block;touch-action:none}
+
+  /* ---- Single JUMP control: one big thumb button, centered ---- */
+  .ctrl{position:absolute;bottom:max(22px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
+    width:min(74vw,440px);min-width:140px;height:104px;border-radius:30px;
+    border:1px solid var(--line);background:#243056e6;backdrop-filter:blur(6px);
+    color:var(--ink);font-weight:900;letter-spacing:3px;font-size:17px;
+    display:none;place-items:center;z-index:8;touch-action:none;cursor:pointer;
+    box-shadow:0 10px 28px #0007}
+  #jumpBtn.on{border-color:var(--gold);color:var(--gold);transform:translateX(-50%) scale(.97)}
+  body.playing .ctrl{display:grid}
+  @media (orientation:landscape){
+    .ctrl{height:22vh;max-height:120px;width:min(60vw,420px)}
+  }
+  #hint{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);text-align:center;
+    pointer-events:none;color:#ffffffe6;font-weight:800;font-size:15px;letter-spacing:1px;
+    text-shadow:0 2px 14px #000a;display:none}
+  #hint small{display:block;font-weight:600;color:#ffffffaa;font-size:11px;margin-top:5px;letter-spacing:2px}
+
+  /* ---- Overlay screens ---- */
+  .screen{position:absolute;inset:0;display:none;flex-direction:column;z-index:5;
+    background:linear-gradient(180deg,#0e1326e6,#0e1326f7)}
+  .screen.show{display:flex;animation:fade .18s ease}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  .scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px}
+  .title{font-size:min(13vw,52px);font-weight:900;letter-spacing:4px;text-align:center;margin:6px 0 0}
+  .title .v{background:linear-gradient(90deg,var(--cyan),var(--pink),var(--gold));
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .tagline{text-align:center;color:var(--muted);font-size:12px;letter-spacing:3px;
+    text-transform:uppercase;margin:4px 0 14px}
+  .menu-btns{display:flex;flex-direction:column;gap:10px;max-width:340px;margin:0 auto;width:100%}
+  .btn{border:none;border-radius:14px;padding:15px;font-size:16px;font-weight:800;cursor:pointer;
+    color:#0e1326;background:var(--gold);letter-spacing:1px}
+  .btn:active{transform:translateY(1px)}
+  .btn.alt{background:var(--panel2);color:var(--ink);border:1px solid var(--line)}
+  .btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--line);font-weight:700}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .sheet-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:10px}
+  .sheet-head h2{margin:0;font-size:20px;letter-spacing:1px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .seg button{background:var(--panel);color:var(--muted);border:none;padding:7px 12px;font-size:12px;font-weight:800;cursor:pointer}
+  .seg button.on{background:var(--panel2);color:var(--ink)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:10px;margin-top:12px}
+  .cell{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px;
+    display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;position:relative;overflow:hidden}
+  .cell canvas{width:72px;height:72px}
+  .cell .nm{font-size:10px;color:var(--muted);font-weight:700;text-align:center;line-height:1.15;
+    max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cell.eq{outline:2px solid var(--gold);outline-offset:-2px}
+  .cell.lock{opacity:.55}
+  .cell .tag{position:absolute;top:6px;right:6px;font-size:8px;font-weight:800;padding:2px 5px;border-radius:6px;
+    text-transform:uppercase;letter-spacing:.5px;color:#0e1326}
+  .cell .favbtn{position:absolute;top:5px;left:5px;width:22px;height:22px;border-radius:7px;border:1px solid var(--line);
+    background:#0e1326cc;color:#5a6488;font-size:12px;line-height:1;cursor:pointer;display:grid;place-items:center;padding:0}
+  .cell .favbtn.on{color:var(--gold);border-color:var(--gold)}
+  .favbar{display:flex;gap:10px;justify-content:center;margin:10px auto 2px}
+  .favslot{width:64px;height:64px;border-radius:14px;border:1px solid var(--line);background:var(--panel);
+    display:grid;place-items:center;cursor:pointer;overflow:hidden;color:#3a4674;font-size:18px}
+  .favslot canvas{width:58px;height:58px}
+  .favslot.empty{cursor:default}
+  .favslot.eq{outline:2px solid var(--gold);outline-offset:-2px}
+  .favreveal.on{color:var(--gold);border-color:var(--gold)}
+
+  /* ---- Worlds map ---- */
+  .region-h{display:flex;align-items:baseline;gap:8px;margin:18px 2px 4px}
+  .region-h b{font-size:15px;letter-spacing:.5px}
+  .region-h span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:2px}
+  .wgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-top:8px}
+  .wcell{border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;background:var(--panel);position:relative}
+  .wcell canvas{width:100%;height:64px;display:block}
+  .wcell .wm{padding:7px 9px}
+  .wcell .wm b{font-size:12px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wcell .wm span{font-size:10px;color:var(--muted)}
+  .wcell.start{outline:2px solid var(--gold);outline-offset:-2px}
+  .wcell .pl{position:absolute;top:6px;right:6px;background:#0e1326cc;border:1px solid var(--line);
+    border-radius:8px;font-size:10px;font-weight:800;padding:3px 7px;display:flex;align-items:center;gap:4px}
+  .wcell.lock .wm b{color:var(--muted)}
+
+  .row{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);
+    border-radius:14px;padding:12px;margin-top:10px}
+  .row .meta{flex:1}.row .meta b{display:block;font-size:15px}.row .meta span{font-size:11px;color:var(--muted)}
+  .price{display:inline-flex;align-items:center;gap:5px;font-weight:800;font-size:13px}
+
+  /* Vault / roll */
+  #hatchStage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px}
+  #hatchCanvas{width:200px;height:200px}
+  .rar-pill{font-weight:900;letter-spacing:2px;text-transform:uppercase;font-size:14px;padding:6px 16px;border-radius:999px}
+  .pop{animation:pop .5s cubic-bezier(.2,1.4,.4,1)}
+  @keyframes pop{0%{transform:scale(.2);opacity:0}60%{transform:scale(1.12)}100%{transform:scale(1)}}
+  .muted{color:var(--muted)} .center{text-align:center}
+  .big{font-size:34px;font-weight:900;letter-spacing:1px}
+  .newbest{display:none;color:var(--gold);font-weight:900;letter-spacing:3px;text-align:center;
+    margin-top:2px;font-size:13px;animation:fade .3s ease}
+  .stat-line{display:flex;justify-content:center;gap:22px;margin:8px 0 18px}
+  .stat-line div{text-align:center}.stat-line b{font-size:26px;display:block}.stat-line span{font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--panel2);
+    border:1px solid var(--line);color:var(--ink);padding:10px 18px;border-radius:999px;font-weight:700;
+    font-size:13px;z-index:50;opacity:0;transition:opacity .2s, transform .2s;pointer-events:none}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hud">
+    <div class="badge"><span class="coin"></span><span id="coinCount">0</span></div>
+    <div class="score-wrap"><div class="s" id="scoreNow">0</div><div class="l" id="stageLabel">Score</div></div>
+    <div style="display:flex;gap:8px">
+      <div class="icon-btn" id="fsBtn">⛶</div>
+      <div class="icon-btn" id="muteBtn">🔊</div>
+      <div class="icon-btn" id="pauseBtn">❚❚</div>
+    </div>
+  </div>
+
+  <div id="stage">
+    <canvas id="game"></canvas>
+    <div id="hint">TAP / SPACE to JUMP<small>HOLD FOR A HIGHER HOP</small></div>
+  </div>
+  <button id="jumpBtn" class="ctrl">JUMP</button>
+</div>
+
+<!-- Title -->
+<div class="screen show" id="titleScreen">
+  <div class="scroll" style="display:flex;flex-direction:column;justify-content:center">
+    <div class="title"><span class="v">SKITTERLINGS</span></div>
+    <div class="tagline">run · hop · collect</div>
+    <div class="favbar" id="favBar"></div>
+    <div class="menu-btns">
+      <button class="btn" id="playBtn">PLAY</button>
+      <button class="btn alt" id="collectionBtn">Skitterlings</button>
+      <button class="btn alt" id="hatchOpenBtn">Vault · Roll a Skitterling</button>
+      <button class="btn alt" id="themesBtn">Worlds</button>
+    </div>
+    <div class="center muted" style="margin-top:18px;font-size:11px">Best&nbsp;<span id="bestTitle">0</span> · <span id="worldsTitle">0</span> worlds</div>
+  </div>
+</div>
+
+<!-- Game Over -->
+<div class="screen" id="overScreen">
+  <div class="scroll" style="display:flex;flex-direction:column;justify-content:center">
+    <div class="center big">RUN OVER</div>
+    <div class="newbest" id="newBest">★ NEW BEST ★</div>
+    <div class="stat-line">
+      <div><b id="ovScore">0</b><span>Score</span></div>
+      <div><b id="ovBest">0</b><span>Best</span></div>
+      <div><b id="ovCoins">+0</b><span>Coins</span></div>
+    </div>
+    <div class="center muted" id="ovWorld" style="margin:-8px 0 14px;font-size:12px"></div>
+    <div class="menu-btns">
+      <button class="btn" id="retryBtn">RETRY</button>
+      <button class="btn alt" id="ovHatchBtn">Roll a Skitterling</button>
+      <button class="btn ghost" id="ovMenuBtn">Menu</button>
+    </div>
+  </div>
+</div>
+
+<!-- Collection / Skitterlings -->
+<div class="screen" id="collScreen">
+  <div class="scroll">
+    <div class="sheet-head">
+      <h2>Skitterlings</h2>
+      <button class="icon-btn" data-close>✕</button>
+    </div>
+    <div class="muted" style="font-size:12px"><span id="collCount">0</span> collected. Tap to equip · ★ to favourite (top 3 pin to the menu).</div>
+    <div class="grid" id="collGrid"></div>
+  </div>
+</div>
+
+<!-- Worlds -->
+<div class="screen" id="themeScreen">
+  <div class="scroll">
+    <div class="sheet-head"><h2>Worlds</h2><button class="icon-btn" data-close>✕</button></div>
+    <div class="muted" style="font-size:12px">Your run journeys through every world as you survive — each one you reach unlocks. Pick where to start, or buy ahead.</div>
+    <div id="themeList"></div>
+  </div>
+</div>
+
+<!-- Vault -->
+<div class="screen" id="hatchScreen">
+  <div class="sheet-head" style="padding:14px 16px 0"><h2>The Vault</h2><button class="icon-btn" data-close>✕</button></div>
+  <div id="hatchStage">
+    <canvas id="hatchCanvas"></canvas>
+    <div id="hatchLabel" class="center muted">Spend coins to roll a brand-new skitterling.<br>Every one has its own name &amp; rarity.</div>
+    <div id="hatchRar"></div>
+    <div class="menu-btns" style="margin-top:6px">
+      <button class="btn" id="rollBtn">ROLL · <span class="price"><span class="coin"></span>100</span></button>
+      <button class="btn alt" id="equipRolledBtn" style="display:none">Equip</button>
+      <button class="btn ghost favreveal" id="favRolledBtn" style="display:none">☆ Add to Favourites</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* ============================================================================
+   SKITTERLINGS — one-button endless runner journey
+   Single-file vanilla PWA.  Sections:
+     1. STORE      persistence (localStorage -> in-memory fallback)
+     2. RNG/HASH   deterministic seed -> traits
+     3. SKINS      procedural creature engine (thousands of skins from seeds)
+     4. THEMES     100 themed worlds the run travels through  (DATA)
+     5. ROSTER     named characters (DATA)
+     6. SAVE       save state + currency  (<<< portal/sunbeam seam here)
+     7. AUDIO      tiny WebAudio SFX
+     8. RENDERERS  parallax + obstacle + flyer draw libraries
+     9. GAME       physics (JUMP only — no duck), spawner, journey, loop
+    10. UI         screens, worlds map, collection, vault, controls
+   All balance lives in CFG (section 9).
+   ========================================================================== */
+
+/* ---- 1. STORE ----------------------------------------------------------- */
+const Store = (() => {
+  let mem = {}, ok = true;
+  try { const k = "__sk"; localStorage.setItem(k, "1"); localStorage.removeItem(k); }
+  catch (e) { ok = false; }
+  return {
+    get(key, def) {
+      try { if (ok) { const v = localStorage.getItem(key); return v == null ? def : JSON.parse(v); }
+            return key in mem ? mem[key] : def; }
+      catch (e) { return def; }
+    },
+    set(key, val) {
+      try { if (ok) localStorage.setItem(key, JSON.stringify(val)); else mem[key] = val; }
+      catch (e) { ok = false; mem[key] = val; }   // runtime failure (e.g. quota) -> fall back to memory
+    }
+  };
+})();
+
+/* ---- 2. RNG / HASH ------------------------------------------------------ */
+function hashStr(str) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  return h >>> 0;
+}
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+/* ---- 3. SKINS — procedural creature engine ------------------------------
+   Deterministic: same seed -> same traits & rarity, forever.  The trait
+   space below is large (body x ear x tail x pattern x eyes x acc x palette)
+   so seeds yield thousands of visually distinct skitterlings for free.     */
+const RARITIES = [ // [name, weight, color]
+  ["Common", 0.57, "#9aa6d4"], ["Uncommon", 0.25, "#46d39a"],
+  ["Rare", 0.12, "#5ce1e6"], ["Epic", 0.04, "#b07cff"],
+  ["Legendary", 0.015, "#ffce4a"], ["Mythic", 0.005, "#ff6ea9"]
+];
+function rarityFromRoll(r) { let a = 0; for (const x of RARITIES) { a += x[1]; if (r < a) return x; } return RARITIES[RARITIES.length - 1]; }
+
+const Skins = (() => {
+  const cache = {};
+  const BODIES   = ["round", "tall", "egg", "bean", "blob", "chonk"];
+  const EARS     = ["none", "ears", "horns", "antennae", "fin", "floppy", "spikes", "bunny"];
+  const TAILS    = ["none", "stub", "long", "puff", "curl"];
+  const PATTERNS = ["none", "spots", "stripe", "belly", "patch", "star"];
+  const EYES     = ["dot", "round", "sleepy", "wide", "happy", "wink"];
+  const MOUTHS   = ["none", "none", "smile", "smile", "fang", "beak", "whiskers"];
+  const SCHEMES  = ["mono", "comp", "analog"];
+  // finish/material — gated by rarity; multiplies perceived variety hugely
+  const MATMOD = {
+    matte:   { l: 57, ds: 0 },   pastel:  { l: 74, ds: -20 }, glossy: { l: 58, ds: 2, sheen: 1 },
+    metallic:{ l: 62, ds: -22, sheen: 1 }, neon: { l: 56, ds: 24 }, holo: { l: 60, ds: 6 },
+    frost:   { l: 70, ds: -6 },  ember:   { l: 54, ds: 14 }
+  };
+
+  function traits(seed) {
+    seed = String(seed);
+    if (cache[seed]) return cache[seed];
+    const rnd = mulberry32(hashStr(seed));
+    const rar = rarityFromRoll(rnd());
+    const rarIdx = RARITIES.indexOf(rar);
+    const pick = arr => arr[Math.floor(rnd() * arr.length)];
+    const hue = Math.floor(rnd() * 360);
+    const scheme = pick(SCHEMES);
+    let hue2;
+    if (scheme === "comp") hue2 = (hue + 150 + Math.floor(rnd() * 60)) % 360;
+    else if (scheme === "analog") hue2 = (hue + 25 + Math.floor(rnd() * 40)) % 360;
+    else hue2 = (hue + 8) % 360;
+    const sat = 52 + Math.floor(rnd() * 22);
+    const body = pick(BODIES);
+    const ear = pick(EARS);
+    const tail = pick(TAILS);
+    const pattern = pick(PATTERNS);
+    const eyes = pick(EYES);
+    const mouth = pick(MOUTHS);
+    let acc = pick(["none", "none", "none", "scarf", "cap", "glasses", "bowtie", "flower"]);
+    if (rarIdx >= 2 && acc === "none") acc = pick(["none", "scarf", "cap", "headphones", "visor"]);
+    if (rarIdx >= 3) acc = pick(["glasses", "headphones", "visor", "cap", "flower"]);
+    if (rarIdx >= 4) acc = "crown";
+    // finish gated by rarity: commons are plain, top tiers are flashy
+    const mr = rnd();
+    let material;
+    if (rarIdx >= 5) material = pick(["holo", "neon", "metallic", "ember", "frost"]);
+    else if (rarIdx >= 4) material = mr < 0.6 ? "holo" : pick(["metallic", "neon", "glossy"]);
+    else if (rarIdx >= 3) material = mr < 0.5 ? pick(["metallic", "neon", "glossy"]) : pick(["matte", "pastel", "glossy"]);
+    else if (rarIdx >= 2) material = mr < 0.4 ? pick(["glossy", "frost", "ember"]) : pick(["matte", "pastel"]);
+    else material = pick(["matte", "matte", "pastel", "glossy"]);
+    const t = { seed, rarity: rar[0], rarColor: rar[2], rarIdx, hue, hue2, sat,
+                body, ear, tail, pattern, eyes, mouth, acc, material,
+                aura: rarIdx >= 3 ? rarIdx : 0, sparkle: rarIdx >= 4, glow: rarIdx >= 4 || material === "neon" };
+    cache[seed] = t; return t;
+  }
+
+  function rr(c, x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    c.beginPath();
+    c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+  }
+  function circle(c, x, y, r) { c.beginPath(); c.arc(x, y, r, 0, 7); }
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+  // material-aware torso fill (gradient for holo / metallic, else solid)
+  function bodyPaint(c, tr, x, yTop, w, h, s, L) {
+    if (tr.material === "holo") {
+      const g = c.createLinearGradient(x, yTop, x + w, yTop + h);
+      g.addColorStop(0, `hsl(${tr.hue},${s}%,66%)`);
+      g.addColorStop(0.5, `hsl(${(tr.hue + 70) % 360},${s}%,62%)`);
+      g.addColorStop(1, `hsl(${tr.hue2},${s}%,60%)`);
+      return g;
+    }
+    if (tr.material === "metallic") {
+      const g = c.createLinearGradient(0, yTop, 0, yTop + h);
+      g.addColorStop(0, `hsl(${tr.hue},${clamp(s - 8, 6, 90)}%,76%)`);
+      g.addColorStop(0.55, `hsl(${tr.hue},${clamp(s - 8, 6, 90)}%,50%)`);
+      g.addColorStop(1, `hsl(${tr.hue},${clamp(s - 8, 6, 90)}%,64%)`);
+      return g;
+    }
+    return `hsl(${tr.hue},${s}%,${L}%)`;
+  }
+  // animated rarity aura, drawn BEHIND the creature
+  function drawAura(c, tr, cx, cy, R, phase) {
+    c.save();
+    c.globalAlpha = 0.14 + 0.035 * tr.aura;
+    c.fillStyle = tr.rarColor; c.beginPath(); c.arc(cx, cy, R, 0, 7); c.fill();
+    c.globalAlpha = 1;
+    const n = tr.aura >= 5 ? 6 : tr.aura >= 4 ? 4 : 0;
+    for (let i = 0; i < n; i++) {
+      const a = phase * 0.6 + i / n * 6.283;
+      c.fillStyle = i % 2 ? "#ffffff" : tr.rarColor;
+      circle(c, cx + Math.cos(a) * R * 0.94, cy + Math.sin(a) * R * 0.78, R * 0.05); c.fill();
+    }
+    c.restore();
+  }
+  function drawMouth(c, tr, hx, hy, headR, ink, S) {
+    const m = tr.mouth; if (m === "none") return;
+    const mx = hx + headR * 0.18, my = hy + headR * 0.46;
+    if (m === "smile") { c.strokeStyle = ink; c.lineWidth = .028 * S; c.lineCap = "round"; c.beginPath(); c.arc(mx, my - headR * .12, headR * .26, Math.PI * 0.18, Math.PI * 0.82); c.stroke(); }
+    else if (m === "fang") { c.strokeStyle = ink; c.lineWidth = .028 * S; c.beginPath(); c.moveTo(mx - headR * .16, my); c.lineTo(mx + headR * .16, my); c.stroke(); c.fillStyle = "#fff"; c.beginPath(); c.moveTo(mx - headR * .05, my); c.lineTo(mx - headR * .01, my + headR * .15); c.lineTo(mx + headR * .04, my); c.closePath(); c.fill(); }
+    else if (m === "beak") { c.fillStyle = "#ffb24a"; c.beginPath(); c.moveTo(mx - headR * .15, my - headR * .06); c.lineTo(mx + headR * .17, my); c.lineTo(mx - headR * .15, my + headR * .08); c.closePath(); c.fill(); }
+    else if (m === "whiskers") { c.strokeStyle = ink; c.lineWidth = .016 * S; [[-1, -.03], [-1, .03], [1, -.03], [1, .03]].forEach(w => { c.beginPath(); c.moveTo(mx + w[0] * headR * .05, my + w[1] * S); c.lineTo(mx + w[0] * headR * .5, my + w[1] * S * 2.6); c.stroke(); }); c.fillStyle = ink; circle(c, mx, my, headR * .045); c.fill(); }
+  }
+
+  function draw(c, tr, fx, footY, S, pose, phase) {
+    const M = MATMOD[tr.material] || MATMOD.matte;
+    const s = clamp(tr.sat + M.ds, 8, 98), L = M.l, dL = clamp(M.l - 17, 12, 70), bL = clamp(M.l + 22, 40, 92);
+    const body = `hsl(${tr.hue},${s}%,${L}%)`, dark = `hsl(${tr.hue},${clamp(s - 8, 6, 90)}%,${dL}%)`,
+          belly = `hsl(${tr.hue},${clamp(s - 6, 6, 90)}%,${bL}%)`, acc = `hsl(${tr.hue2},${clamp(s + 14, 6, 98)}%,58%)`,
+          ink = `hsl(${tr.hue},40%,15%)`;
+    c.save(); c.translate(fx, footY);
+    let bw = (tr.body === "tall" ? 0.50 : tr.body === "egg" ? 0.58 : tr.body === "bean" ? 0.54 :
+              tr.body === "blob" ? 0.70 : tr.body === "chonk" ? 0.72 : 0.62) * S;
+    let bh = (tr.body === "tall" ? 0.62 : tr.body === "chonk" ? 0.46 : tr.body === "blob" ? 0.48 : 0.50) * S;
+    let legL = 0.26 * S, headR = (tr.body === "chonk" ? 0.30 : 0.27) * S;
+    const bBot = -legL, bTop = bBot - bh, bMid = (bTop + bBot) / 2;
+    if (tr.aura) drawAura(c, tr, bw * 0.05, bMid - headR * 0.3, Math.max(bw, bh) * 0.95, phase);
+    if (tr.glow) { c.shadowColor = acc; c.shadowBlur = 16; }
+
+    // tail
+    if (tr.tail !== "none") {
+      c.fillStyle = dark; const tx = -bw * 0.48, ty = bMid + 0.04 * S;
+      if (tr.tail === "long") { c.beginPath(); c.moveTo(tx, ty); c.quadraticCurveTo(tx - .28 * S, ty - .04 * S, tx - .30 * S, ty + .14 * S); c.lineTo(tx - .16 * S, ty + .16 * S); c.quadraticCurveTo(tx - .08 * S, ty + .06 * S, tx, ty + .08 * S); c.fill(); }
+      else if (tr.tail === "puff") { circle(c, tx - .14 * S, ty + .04 * S, .14 * S); c.fill(); }
+      else if (tr.tail === "curl") { c.strokeStyle = dark; c.lineWidth = .07 * S; c.lineCap = "round"; c.beginPath(); c.moveTo(tx, ty); c.quadraticCurveTo(tx - .22 * S, ty - .02 * S, tx - .18 * S, ty + .16 * S); c.quadraticCurveTo(tx - .14 * S, ty + .28 * S, tx - .02 * S, ty + .22 * S); c.stroke(); }
+      else { circle(c, tx - .04 * S, ty + .03 * S, .08 * S); c.fill(); }
+    }
+
+    // legs
+    c.strokeStyle = dark; c.lineWidth = 0.11 * S; c.lineCap = "round";
+    const lt = bBot - 0.01 * S;
+    const leg = (dx, sw) => { c.beginPath(); c.moveTo(dx, lt); c.lineTo(dx + sw, 0); c.stroke(); };
+    if (pose === "run") { const sp = Math.sin(phase) * 0.14 * S; leg(-0.12 * S, sp); leg(0.13 * S, -sp); }
+    else if (pose === "jump") { leg(-0.10 * S, -0.12 * S); leg(0.13 * S, -0.18 * S); }
+    else { leg(-0.16 * S, 0.0); leg(0.12 * S, 0.0); }
+
+    // body (material-aware fill)
+    rr(c, -bw / 2, bTop, bw, bh, Math.min(bw, bh) * 0.46);
+    c.fillStyle = bodyPaint(c, tr, -bw / 2, bTop, bw, bh, s, L); c.fill();
+    c.lineWidth = 0.035 * S; c.strokeStyle = ink; c.stroke();
+    if (M.sheen) { c.save(); c.shadowBlur = 0; c.fillStyle = "#ffffff66"; c.beginPath(); c.ellipse(-bw * 0.16, bTop + bh * 0.26, bw * 0.2, bh * 0.16, -0.5, 0, 7); c.fill(); c.restore(); }
+
+    // pattern
+    if (tr.pattern === "belly") { c.fillStyle = belly; rr(c, -bw * 0.26, bMid - 0.02 * S, bw * 0.48, bh * 0.5, 0.08 * S); c.fill(); }
+    else if (tr.pattern === "spots") { c.fillStyle = dark; [[-.10, 0], [.12, -.06], [.03, .09]].forEach(p => { circle(c, p[0] * S, bMid + p[1] * S, .045 * S); c.fill(); }); }
+    else if (tr.pattern === "stripe") { c.fillStyle = dark; c.fillRect(-0.03 * S, bTop, 0.05 * S, bh); }
+    else if (tr.pattern === "patch") { c.fillStyle = dark; circle(c, bw * 0.16, bMid + 0.02 * S, 0.16 * S); c.fill(); }
+    else if (tr.pattern === "star") { c.fillStyle = belly; star(c, -bw * 0.02, bMid, 0.13 * S, 5); c.fill(); }
+
+    // head
+    const hx = bw * 0.16, hy = bTop - headR * 0.5;
+    c.fillStyle = body; c.strokeStyle = ink; c.lineWidth = 0.03 * S;
+    drawEars(c, tr, hx, hy, headR, body, dark, acc, ink, S);
+    c.fillStyle = body; circle(c, hx, hy, headR); c.fill();
+    c.lineWidth = 0.035 * S; c.strokeStyle = ink; c.stroke();
+
+    // eyes + mouth
+    const ex = hx + headR * 0.42, ey = hy - headR * 0.05;
+    drawEyes(c, tr, ex, ey, ink, S);
+    drawMouth(c, tr, hx, hy, headR, ink, S);
+
+    // accessory
+    drawAcc(c, tr, hx, hy, headR, bw, bh, bTop, ex, ey, acc, ink, S);
+    // rarity sparkle (twinkles, animated in-game via phase)
+    if (tr.sparkle) { c.shadowBlur = 0; c.fillStyle = "#ffffff"; [[-.32, -.16], [.34, -.34], [.08, -.52]].forEach((p, i) => { const tw = 0.5 + 0.5 * Math.sin(phase * 1.3 + i * 2.1); c.globalAlpha = 0.45 + 0.55 * tw; star(c, p[0] * S, bTop + p[1] * S, S * 0.05 * (0.7 + tw * 0.6), 4); c.fill(); }); c.globalAlpha = 1; }
+    c.restore();
+  }
+
+  function drawEars(c, tr, hx, hy, headR, body, dark, acc, ink, S) {
+    const e = tr.ear;
+    if (e === "ears") { [[-.6], [.6]].forEach(s => { c.save(); c.translate(hx + s[0] * headR, hy - headR * 0.7); c.fillStyle = body; c.beginPath(); c.ellipse(0, 0, headR * .26, headR * .5, s[0] * .3, 0, 7); c.fill(); c.stroke(); c.restore(); }); }
+    else if (e === "floppy") { [[-.7], [.7]].forEach(s => { c.save(); c.translate(hx + s[0] * headR * .8, hy - headR * .3); c.rotate(s[0] * .5); c.fillStyle = dark; rr(c, -headR * .16, 0, headR * .32, headR * .85, headR * .16); c.fill(); c.restore(); }); }
+    else if (e === "bunny") { [[-.45], [.45]].forEach(s => { c.save(); c.translate(hx + s[0] * headR * .6, hy - headR * 1.0); c.fillStyle = body; rr(c, -headR * .12, -headR * .55, headR * .24, headR * .95, headR * .12); c.fill(); c.stroke(); c.fillStyle = acc; rr(c, -headR * .06, -headR * .4, headR * .12, headR * .6, headR * .06); c.fill(); c.restore(); }); }
+    else if (e === "horns") { [[-.55], [.55]].forEach(s => { c.beginPath(); c.moveTo(hx + s[0] * headR * .8, hy - headR * .6); c.lineTo(hx + s[0] * headR * 1.1, hy - headR * 1.25); c.lineTo(hx + s[0] * headR * .35, hy - headR * .75); c.closePath(); c.fillStyle = dark; c.fill(); }); }
+    else if (e === "spikes") { c.fillStyle = dark; [-.5, 0, .5].forEach(o => { c.beginPath(); c.moveTo(hx + o * headR - headR * .12, hy - headR * .7); c.lineTo(hx + o * headR, hy - headR * 1.25); c.lineTo(hx + o * headR + headR * .12, hy - headR * .7); c.closePath(); c.fill(); }); }
+    else if (e === "antennae") { c.strokeStyle = dark; c.lineWidth = .04 * S; [[-.4], [.4]].forEach(s => { c.beginPath(); c.moveTo(hx + s[0] * headR * .5, hy - headR * .6); c.lineTo(hx + s[0] * headR * .8, hy - headR * 1.3); c.stroke(); c.fillStyle = acc; circle(c, hx + s[0] * headR * .8, hy - headR * 1.35, .05 * S); c.fill(); }); }
+    else if (e === "fin") { c.fillStyle = acc; c.beginPath(); c.moveTo(hx - headR * .2, hy - headR * .8); c.lineTo(hx, hy - headR * 1.5); c.lineTo(hx + headR * .35, hy - headR * .7); c.closePath(); c.fill(); }
+  }
+
+  function drawEyes(c, tr, ex, ey, ink, S) {
+    const e = tr.eyes;
+    if (e === "sleepy") { c.strokeStyle = ink; c.lineWidth = .04 * S; c.beginPath(); c.moveTo(ex - .05 * S, ey); c.lineTo(ex + .06 * S, ey); c.stroke(); c.beginPath(); c.moveTo(ex - .24 * S, ey); c.lineTo(ex - .13 * S, ey); c.stroke(); return; }
+    if (e === "happy") { c.strokeStyle = ink; c.lineWidth = .045 * S; c.lineCap = "round"; [0, -.19].forEach(d => { c.beginPath(); c.arc(ex + d * S, ey + .02 * S, .06 * S, Math.PI * 1.15, Math.PI * 1.85); c.stroke(); }); return; }
+    const er = e === "wide" ? .085 * S : e === "round" ? .07 * S : .055 * S;
+    const drawEye = (x, wink) => {
+      if (wink) { c.strokeStyle = ink; c.lineWidth = .045 * S; c.lineCap = "round"; c.beginPath(); c.moveTo(x - .05 * S, ey); c.lineTo(x + .05 * S, ey); c.stroke(); return; }
+      c.fillStyle = "#fff"; circle(c, x, ey, er); c.fill();
+      c.fillStyle = ink; circle(c, x + er * .35, ey, er * .55); c.fill();
+    };
+    drawEye(ex, false);
+    drawEye(ex - .19 * S, e === "wink");
+  }
+
+  function drawAcc(c, tr, hx, hy, headR, bw, bh, bTop, ex, ey, acc, ink, S) {
+    const a = tr.acc;
+    if (a === "scarf") { c.fillStyle = acc; rr(c, -bw * 0.34, bTop - 0.02 * S, bw * 0.68, 0.12 * S, 0.04 * S); c.fill(); }
+    else if (a === "cap") { c.fillStyle = acc; rr(c, hx - headR * .9, hy - headR * 1.05, headR * 1.8, headR * .55, headR * .25); c.fill(); c.fillRect(hx + headR * .2, hy - headR * .6, headR * .9, headR * .18); }
+    else if (a === "glasses") { c.strokeStyle = ink; c.lineWidth = .035 * S; circle(c, ex, ey, .085 * S); c.stroke(); circle(c, ex - .19 * S, ey, .085 * S); c.stroke(); c.beginPath(); c.moveTo(ex - .085 * S, ey); c.lineTo(ex - .105 * S, ey); c.stroke(); }
+    else if (a === "visor") { c.fillStyle = "#0e1326cc"; rr(c, ex - .30 * S, ey - .09 * S, .42 * S, .17 * S, .06 * S); c.fill(); c.fillStyle = acc; rr(c, ex - .30 * S, ey - .12 * S, .42 * S, .05 * S, .02 * S); c.fill(); }
+    else if (a === "headphones") { c.strokeStyle = ink; c.lineWidth = .05 * S; c.beginPath(); c.arc(hx, hy, headR * 1.05, Math.PI * 1.15, Math.PI * 1.85); c.stroke(); c.fillStyle = acc; [[-1], [1]].forEach(s => { rr(c, hx + s[0] * headR * 1.0 - headR * .12, hy - headR * .2, headR * .24, headR * .4, headR * .1); c.fill(); }); }
+    else if (a === "bowtie") { c.fillStyle = acc; const by = bTop + 0.02 * S; c.beginPath(); c.moveTo(0, by); c.lineTo(-.12 * S, by - .07 * S); c.lineTo(-.12 * S, by + .07 * S); c.closePath(); c.fill(); c.beginPath(); c.moveTo(0, by); c.lineTo(.12 * S, by - .07 * S); c.lineTo(.12 * S, by + .07 * S); c.closePath(); c.fill(); }
+    else if (a === "flower") { c.fillStyle = acc; const fx = hx - headR * .7, fy = hy - headR * .75; for (let i = 0; i < 5; i++) { const ang = i / 5 * 6.283; circle(c, fx + Math.cos(ang) * .06 * S, fy + Math.sin(ang) * .06 * S, .045 * S); c.fill(); } c.fillStyle = "#ffce4a"; circle(c, fx, fy, .04 * S); c.fill(); }
+    else if (a === "crown") { c.fillStyle = "#ffce4a"; const cy0 = hy - headR * 0.95, cw = headR * 1.3; c.beginPath(); c.moveTo(hx - cw / 2, cy0 + headR * .3); for (let i = 0; i <= 4; i++) { const px = hx - cw / 2 + (cw / 4) * i; c.lineTo(px, cy0 + (i % 2 ? headR * .3 : -headR * .15)); } c.lineTo(hx + cw / 2, cy0 + headR * .3); c.closePath(); c.fill(); }
+  }
+
+  function star(c, cx, cy, r, n) {
+    c.beginPath();
+    for (let i = 0; i < n * 2; i++) { const rr2 = i % 2 ? r * .45 : r; const a = i / (n * 2) * 6.283 - 1.57; const fn = i ? "lineTo" : "moveTo"; c[fn](cx + Math.cos(a) * rr2, cy + Math.sin(a) * rr2); }
+    c.closePath();
+  }
+
+  return { traits, draw };
+})();
+
+/* ---- 4. THEMES — 100 worlds the run travels through  --------------------
+   DATA ONLY.  Each entry references a parallax/obStyle/flyStyle implemented
+   in section 8.  Journey order = array order.  Replaced by generated set.   */
+const THEMES = [
+  /*__THEMES_START__*/
+  {"id":"meadow-dawnfield","name":"Dawnfield","region":"Verdant Meadows","tier":1,"sky0":"#ffd9b0","sky1":"#fff3da","ground":"#8ed16a","line":"#5ba43e","ob":"#7c4a26","fly":"#3c5a78","accent":"#ffc23a","star":false,"parallax":"hills","obStyle":"stump","flyStyle":"bird"},
+  {"id":"meadow-cloverbreeze","name":"Cloverbreeze","region":"Verdant Meadows","tier":1,"sky0":"#b8e6ff","sky1":"#ecfbff","ground":"#79c656","line":"#4f9540","ob":"#6e3f22","fly":"#d8543c","accent":"#ffe14a","star":false,"parallax":"clouds","obStyle":"mushroom","flyStyle":"bird"},
+  {"id":"meadow-honeyglade","name":"Honeyglade","region":"Verdant Meadows","tier":1,"sky0":"#ffe9a8","sky1":"#fff7d8","ground":"#9bce5a","line":"#6ba33c","ob":"#6b4422","fly":"#355a7a","accent":"#ff9d3a","star":false,"parallax":"trees","obStyle":"bush","flyStyle":"bird"},
+  {"id":"meadow-brookhollow","name":"Brookhollow","region":"Verdant Meadows","tier":1,"sky0":"#c2ecff","sky1":"#e9fbf2","ground":"#6fc474","line":"#46924f","ob":"#6a655a","fly":"#d98a2e","accent":"#ffd84a","star":false,"parallax":"hills","obStyle":"rock","flyStyle":"leaf"},
+  {"id":"meadow-sunnymeade","name":"Sunnymeade","region":"Verdant Meadows","tier":1,"sky0":"#aee0ff","sky1":"#f0fbff","ground":"#84cf57","line":"#57a043","ob":"#7a4a28","fly":"#d94f3a","accent":"#ffe24a","star":false,"parallax":"hills","obStyle":"mound","flyStyle":"bird"},
+  {"id":"meadow-petalwind","name":"Petalwind","region":"Verdant Meadows","tier":1,"sky0":"#ffd6ea","sky1":"#fff2e4","ground":"#8ad06a","line":"#5aa244","ob":"#6e4324","fly":"#476087","accent":"#ff5fa0","star":false,"parallax":"clouds","obStyle":"sprout","flyStyle":"bird"},
+  {"id":"meadow-mistmorrow","name":"Mistmorrow","region":"Verdant Meadows","tier":1,"sky0":"#d6e9e0","sky1":"#f4faf2","ground":"#7cbf7a","line":"#57935a","ob":"#5d5240","fly":"#4a6470","accent":"#ffd166","star":false,"parallax":"mountains","obStyle":"stump","flyStyle":"bird"},
+  {"id":"meadow-pasture-lull","name":"Pasture Lull","region":"Verdant Meadows","tier":1,"sky0":"#c4e9ff","sky1":"#eef9ff","ground":"#81c95c","line":"#549a45","ob":"#8a5a32","fly":"#34506a","accent":"#ffdd4a","star":false,"parallax":"hills","obStyle":"fence","flyStyle":"bird"},
+  {"id":"meadow-greengale","name":"Greengale","region":"Verdant Meadows","tier":1,"sky0":"#c8ecd0","sky1":"#f0fbef","ground":"#6dc063","line":"#46934a","ob":"#6a4528","fly":"#c9622e","accent":"#ffe05a","star":false,"parallax":"waves","obStyle":"bush","flyStyle":"leaf"},
+  {"id":"meadow-amberfade","name":"Amberfade","region":"Verdant Meadows","tier":1,"sky0":"#ffc878","sky1":"#ffe9b0","ground":"#7bb84a","line":"#4f8a34","ob":"#5e3a1e","fly":"#3a4f6b","accent":"#ff8a3a","star":false,"parallax":"hills","obStyle":"stump","flyStyle":"bird"},
+  {"id":"candy-frosting-dawn","name":"Frosting Dawn","region":"Candy Coast","tier":2,"sky0":"#ffe3ef","sky1":"#fff4dd","ground":"#bff0d4","line":"#82d6aa","ob":"#e23e76","fly":"#8b5cf6","accent":"#ffd23f","star":false,"parallax":"candy","obStyle":"gumdrop","flyStyle":"jelly"},
+  {"id":"candy-lemon-sherbet","name":"Lemon Sherbet Strand","region":"Candy Coast","tier":2,"sky0":"#fff7cc","sky1":"#fffbe9","ground":"#c6ecfa","line":"#88cfe8","ob":"#ff6a35","fly":"#b14dff","accent":"#ff3d8b","star":false,"parallax":"clouds","obStyle":"buoy","flyStyle":"leaf"},
+  {"id":"candy-bubblegum-tide","name":"Bubblegum Tide","region":"Candy Coast","tier":2,"sky0":"#d4ecff","sky1":"#fbe6ff","ground":"#ffd9ec","line":"#f29ec7","ob":"#7a2fd6","fly":"#ff5aa0","accent":"#36e0c7","star":false,"parallax":"waves","obStyle":"gumdrop","flyStyle":"jelly"},
+  {"id":"candy-caramel-cove","name":"Caramel Cove","region":"Candy Coast","tier":2,"sky0":"#ffe6cf","sky1":"#fff6e6","ground":"#bfe9d8","line":"#7fc9ad","ob":"#c75a1e","fly":"#6a4bd6","accent":"#ffcf3d","star":false,"parallax":"dunes","obStyle":"barrel","flyStyle":"drone"},
+  {"id":"candy-mint-choco-drift","name":"Mint Choco Drift","region":"Candy Coast","tier":2,"sky0":"#d6f5e4","sky1":"#fff2f7","ground":"#f3e2c8","line":"#d8b98a","ob":"#4d2a18","fly":"#ff5fa8","accent":"#ffd84d","star":false,"parallax":"hills","obStyle":"stump","flyStyle":"bird"},
+  {"id":"candy-cotton-candy-reach","name":"Cotton Candy Reach","region":"Candy Coast","tier":2,"sky0":"#ffd9f0","sky1":"#d9ecff","ground":"#c9f3e0","line":"#84d6b0","ob":"#d63a8c","fly":"#8a3df0","accent":"#ffe04d","star":false,"parallax":"candy","obStyle":"gumdrop","flyStyle":"jelly"},
+  {"id":"candy-lavender-lagoon","name":"Lavender Lagoon","region":"Candy Coast","tier":2,"sky0":"#e3d4ff","sky1":"#ffe6f2","ground":"#cdeede","line":"#82cdb0","ob":"#6a23b8","fly":"#ff6b3d","accent":"#ffd23f","star":false,"parallax":"crystals","obStyle":"crystal","flyStyle":"jelly"},
+  {"id":"candy-watermelon-wash","name":"Watermelon Wash","region":"Candy Coast","tier":2,"sky0":"#d9f3df","sky1":"#fff0ee","ground":"#bfe7a8","line":"#8fc46a","ob":"#e23b3b","fly":"#7a3df0","accent":"#ff7ab0","star":false,"parallax":"mushrooms","obStyle":"mound","flyStyle":"leaf"},
+  {"id":"candy-peach-sorbet-bay","name":"Peach Sorbet Bay","region":"Candy Coast","tier":2,"sky0":"#ffe0cf","sky1":"#fff2e3","ground":"#c7eef0","line":"#82cdd0","ob":"#e0356b","fly":"#5b7bff","accent":"#ffc83d","star":false,"parallax":"candy","obStyle":"mushroom","flyStyle":"drone"},
+  {"id":"candy-twilight-taffy","name":"Twilight Taffy","region":"Candy Coast","tier":2,"sky0":"#5a3d8c","sky1":"#ff9ec4","ground":"#3a2a5e","line":"#7a5fb0","ob":"#ff5fa8","fly":"#3ce0d0","accent":"#ffd23f","star":true,"parallax":"aurora","obStyle":"lantern","flyStyle":"ghost"},
+  {"id":"forest-dawnfield","name":"Dawnfield","region":"Deep Forest","tier":3,"sky0":"#d4eed0","sky1":"#aedcae","ground":"#6fa869","line":"#4c7d49","ob":"#4a3526","fly":"#d2802f","accent":"#e9f48a","star":false,"parallax":"trees","obStyle":"stump","flyStyle":"leaf"},
+  {"id":"forest-mossglade","name":"Moss Glade","region":"Deep Forest","tier":3,"sky0":"#c8e9c2","sky1":"#9ad19a","ground":"#5f9a5c","line":"#3f6f3d","ob":"#3a2a1c","fly":"#e0a93f","accent":"#c6ef72","star":false,"parallax":"trees","obStyle":"mound","flyStyle":"leaf"},
+  {"id":"forest-fernhollow","name":"Fern Hollow","region":"Deep Forest","tier":3,"sky0":"#c0e6cf","sky1":"#8fcdb0","ground":"#4f8f64","line":"#356645","ob":"#3b2b22","fly":"#ef9a3c","accent":"#b6f0a0","star":false,"parallax":"hills","obStyle":"sprout","flyStyle":"leaf"},
+  {"id":"forest-dappledlight","name":"Dappled Light","region":"Deep Forest","tier":3,"sky0":"#e2f0bf","sky1":"#b6dd9a","ground":"#6ba85e","line":"#4a7d3f","ob":"#4d3621","fly":"#c46a26","accent":"#faf07a","star":false,"parallax":"trees","obStyle":"stump","flyStyle":"bird"},
+  {"id":"forest-toadstoolring","name":"Toadstool Ring","region":"Deep Forest","tier":3,"sky0":"#cfe9c8","sky1":"#98ce9b","ground":"#5d9659","line":"#3d6b3a","ob":"#c0413e","fly":"#d98a2e","accent":"#f4ef7d","star":false,"parallax":"mushrooms","obStyle":"mushroom","flyStyle":"leaf"},
+  {"id":"forest-brambleway","name":"Brambleway","region":"Deep Forest","tier":3,"sky0":"#aed0a8","sky1":"#7cb583","ground":"#4a7d49","line":"#2f5630","ob":"#2e2014","fly":"#cf7a2c","accent":"#b9e85f","star":false,"parallax":"trees","obStyle":"vine","flyStyle":"bat"},
+  {"id":"forest-willowshade","name":"Willow Shade","region":"Deep Forest","tier":3,"sky0":"#bfe3cb","sky1":"#8ac6ad","ground":"#4d8a66","line":"#335f47","ob":"#36281f","fly":"#e7b14a","accent":"#a9ecc0","star":false,"parallax":"bamboo","obStyle":"bush","flyStyle":"leaf"},
+  {"id":"forest-pinewall","name":"Pinewall","region":"Deep Forest","tier":3,"sky0":"#bcdcc0","sky1":"#84b98c","ground":"#4e7d45","line":"#2e4f29","ob":"#5a3e22","fly":"#d9842e","accent":"#cdee6a","star":false,"parallax":"trees","obStyle":"pillar","flyStyle":"bird"},
+  {"id":"forest-glowcap","name":"Glowcap Grove","region":"Deep Forest","tier":3,"sky0":"#a9d2bd","sky1":"#6fab94","ground":"#45836a","line":"#2c5848","ob":"#2d2418","fly":"#46e0c4","accent":"#8df0c8","star":true,"parallax":"mushrooms","obStyle":"mushroom","flyStyle":"jelly"},
+  {"id":"forest-twilightcanopy","name":"Twilight Canopy","region":"Deep Forest","tier":3,"sky0":"#7fb091","sky1":"#cf9a64","ground":"#3f6e44","line":"#294a2e","ob":"#45291a","fly":"#e3f08a","accent":"#f3d27a","star":false,"parallax":"trees","obStyle":"stump","flyStyle":"leaf"},
+  {"id":"synth-neonmile","name":"Neon Mile","region":"Synthwave Grid","tier":4,"sky0":"#1b0a36","sky1":"#7a1f86","ground":"#0b0418","line":"#ff43b3","ob":"#ff2fb0","fly":"#21e6ff","accent":"#ffe15c","star":true,"parallax":"grid","obStyle":"neon","flyStyle":"drone"},
+  {"id":"synth-violetdrift","name":"Violet Drift","region":"Synthwave Grid","tier":4,"sky0":"#21103f","sky1":"#5b2a8a","ground":"#100624","line":"#b15cff","ob":"#c64bff","fly":"#00f0d0","accent":"#ff5fa8","star":true,"parallax":"clouds","obStyle":"pylon","flyStyle":"jelly"},
+  {"id":"synth-cyanmirage","name":"Cyan Mirage","region":"Synthwave Grid","tier":4,"sky0":"#0a1838","sky1":"#163f63","ground":"#06101f","line":"#2fffe0","ob":"#19f0ff","fly":"#ff45c8","accent":"#ffd84a","star":true,"parallax":"waves","obStyle":"crystal","flyStyle":"drone"},
+  {"id":"synth-magentahaze","name":"Magenta Haze","region":"Synthwave Grid","tier":4,"sky0":"#2a0b30","sky1":"#8a1f5a","ground":"#12041a","line":"#ff5ca0","ob":"#ff2f8e","fly":"#5cd9ff","accent":"#ffd24d","star":true,"parallax":"grid","obStyle":"spike","flyStyle":"bird"},
+  {"id":"synth-gridhorizon","name":"Grid Horizon","region":"Synthwave Grid","tier":4,"sky0":"#311152","sky1":"#ff7a59","ground":"#14062a","line":"#ff8a4c","ob":"#1fe5ff","fly":"#ff4fa8","accent":"#ffe15c","star":false,"parallax":"dunes","obStyle":"totem","flyStyle":"bird"},
+  {"id":"synth-pulsewave","name":"Pulse Wave","region":"Synthwave Grid","tier":4,"sky0":"#160a3a","sky1":"#3a2a8a","ground":"#08051c","line":"#00e5ff","ob":"#00f5d4","fly":"#ff3cac","accent":"#ffe24d","star":true,"parallax":"aurora","obStyle":"shard","flyStyle":"ghost"},
+  {"id":"synth-retrosun","name":"Retro Sun","region":"Synthwave Grid","tier":4,"sky0":"#2e0f40","sky1":"#c43b7a","ground":"#120522","line":"#ff6fb0","ob":"#ff45c8","fly":"#4dffea","accent":"#ffd84a","star":true,"parallax":"city","obStyle":"neon","flyStyle":"drone"},
+  {"id":"synth-glasscircuit","name":"Glass Circuit","region":"Synthwave Grid","tier":4,"sky0":"#0c1530","sky1":"#0e3a4a","ground":"#061018","line":"#1fffd0","ob":"#2cffc6","fly":"#ff5cc0","accent":"#ffe15c","star":true,"parallax":"crystals","obStyle":"ice","flyStyle":"jelly"},
+  {"id":"synth-noxeneon","name":"Nox Neon","region":"Synthwave Grid","tier":4,"sky0":"#120630","sky1":"#4a0f6e","ground":"#060214","line":"#ff2fb0","ob":"#ff1f9e","fly":"#15e0ff","accent":"#b65cff","star":true,"parallax":"space","obStyle":"pylon","flyStyle":"bat"},
+  {"id":"synth-electricdusk","name":"Electric Dusk","region":"Synthwave Grid","tier":4,"sky0":"#1d0b3a","sky1":"#7a2f5a","ground":"#0c0420","line":"#ff5c8a","ob":"#ff3c6e","fly":"#2fe0ff","accent":"#ffd84a","star":true,"parallax":"ruins","obStyle":"slab","flyStyle":"drone"},
+  {"id":"frost-dawnfield","name":"Dawnfield","region":"Frostpeak","tier":5,"sky0":"#c9e6ff","sky1":"#f6fcff","ground":"#e9f3fc","line":"#bcd4e9","ob":"#5f7c99","fly":"#3d566e","accent":"#ffd27a","star":false,"parallax":"mountains","obStyle":"ice","flyStyle":"ghost"},
+  {"id":"frost-driftveil","name":"Driftveil","region":"Frostpeak","tier":5,"sky0":"#d6ecff","sky1":"#f0f8ff","ground":"#e3eef8","line":"#b6cee4","ob":"#6b86a3","fly":"#45607b","accent":"#9fe3ff","star":false,"parallax":"clouds","obStyle":"mound","flyStyle":"bird"},
+  {"id":"frost-glacierrun","name":"Glacier Run","region":"Frostpeak","tier":5,"sky0":"#bfe2f7","sky1":"#eaf6ff","ground":"#dceaf6","line":"#a9c8e0","ob":"#4a6f8e","fly":"#2f4d68","accent":"#7ff0e6","star":false,"parallax":"mountains","obStyle":"crystal","flyStyle":"ghost"},
+  {"id":"frost-crystalhollow","name":"Crystal Hollow","region":"Frostpeak","tier":5,"sky0":"#b3d8f0","sky1":"#e2f1fb","ground":"#d3e4f1","line":"#9fbdd8","ob":"#3f6486","fly":"#34557a","accent":"#b58bff","star":false,"parallax":"crystals","obStyle":"shard","flyStyle":"jelly"},
+  {"id":"frost-snowveil","name":"Snowveil Hills","region":"Frostpeak","tier":5,"sky0":"#cae8fb","sky1":"#f2faff","ground":"#e6f1fa","line":"#b8d2e8","ob":"#557390","fly":"#344f68","accent":"#ffe39a","star":false,"parallax":"hills","obStyle":"spike","flyStyle":"bat"},
+  {"id":"frost-rimeridge","name":"Rime Ridge","region":"Frostpeak","tier":5,"sky0":"#a7cbe6","sky1":"#d9ecf8","ground":"#cadcec","line":"#8fb0cd","ob":"#355472","fly":"#213a52","accent":"#6fe0ff","star":false,"parallax":"mountains","obStyle":"ice","flyStyle":"ghost"},
+  {"id":"frost-icevault","name":"Ice Vault","region":"Frostpeak","tier":5,"sky0":"#8fb4d4","sky1":"#c6dcee","ground":"#b8cde0","line":"#7a9bbb","ob":"#2c4866","fly":"#18304a","accent":"#84f0ff","star":false,"parallax":"caverns","obStyle":"pylon","flyStyle":"ghost"},
+  {"id":"frost-auroraborne","name":"Aurora Borne","region":"Frostpeak","tier":5,"sky0":"#16243f","sky1":"#3a5a7a","ground":"#1f3350","line":"#4a78a0","ob":"#9fd8ff","fly":"#c08bff","accent":"#6effc8","star":true,"parallax":"aurora","obStyle":"crystal","flyStyle":"drone"},
+  {"id":"frost-blizzardgale","name":"Blizzard Gale","region":"Frostpeak","tier":5,"sky0":"#93b6d4","sky1":"#cfe2f0","ground":"#c2d6e8","line":"#84a6c4","ob":"#2f4d6b","fly":"#1c344c","accent":"#ffd27a","star":false,"parallax":"mountains","obStyle":"slab","flyStyle":"leaf"},
+  {"id":"frost-thundercap","name":"Thundercap","region":"Frostpeak","tier":5,"sky0":"#5f7fa0","sky1":"#9fbdd6","ground":"#93acc6","line":"#6a8bab","ob":"#20384f","fly":"#0f2236","accent":"#79f0ff","star":false,"parallax":"crystals","obStyle":"tooth","flyStyle":"ghost"},
+  {"id":"ember-cinderwake","name":"Cinderwake","region":"Ember Depths","tier":6,"sky0":"#4a2238","sky1":"#f08a3c","ground":"#2b1620","line":"#f5a85a","ob":"#ffd25e","fly":"#ffe9b0","accent":"#ff5e7a","star":false,"parallax":"caverns","obStyle":"rock","flyStyle":"bat"},
+  {"id":"ember-ashfall","name":"Ashfall Drift","region":"Ember Depths","tier":6,"sky0":"#3a1a2c","sky1":"#d65a2a","ground":"#241019","line":"#e07a3a","ob":"#ffc04d","fly":"#ffd9a0","accent":"#ff486b","star":false,"parallax":"lava","obStyle":"stump","flyStyle":"leaf"},
+  {"id":"ember-magmavein","name":"Magmavein","region":"Ember Depths","tier":6,"sky0":"#2e1530","sky1":"#c2451f","ground":"#1f0e16","line":"#ff7a33","ob":"#ffb13d","fly":"#ffd0a4","accent":"#ffe14a","star":false,"parallax":"crystals","obStyle":"crystal","flyStyle":"bat"},
+  {"id":"ember-obsidianreach","name":"Obsidian Reach","region":"Ember Depths","tier":6,"sky0":"#281228","sky1":"#a83a22","ground":"#170a12","line":"#ff6a2e","ob":"#ff9a3a","fly":"#ffbf8a","accent":"#ffd23c","star":true,"parallax":"caverns","obStyle":"shard","flyStyle":"bat"},
+  {"id":"ember-scorchhollow","name":"Scorch Hollow","region":"Ember Depths","tier":6,"sky0":"#2a1226","sky1":"#b94824","ground":"#1c0d14","line":"#ff7330","ob":"#ffaa3c","fly":"#ff8f5e","accent":"#ffe65a","star":false,"parallax":"ruins","obStyle":"totem","flyStyle":"drone"},
+  {"id":"ember-pyreglow","name":"Pyreglow","region":"Ember Depths","tier":6,"sky0":"#240f22","sky1":"#cf3d18","ground":"#190a11","line":"#ff5e22","ob":"#ff9430","fly":"#ffd7a2","accent":"#ffe23a","star":false,"parallax":"lava","obStyle":"rock","flyStyle":"bat"},
+  {"id":"ember-cinderforge","name":"Cinderforge","region":"Ember Depths","tier":6,"sky0":"#1f0d1f","sky1":"#b83410","ground":"#150812","line":"#ff661f","ob":"#ffa226","fly":"#ff7a3a","accent":"#ffcf2e","star":false,"parallax":"factory","obStyle":"gear","flyStyle":"drone"},
+  {"id":"ember-moltencore","name":"Molten Core","region":"Ember Depths","tier":6,"sky0":"#1c0a1c","sky1":"#c2300c","ground":"#110610","line":"#ff5418","ob":"#ff8f22","fly":"#ffb86a","accent":"#ffe11f","star":false,"parallax":"lava","obStyle":"spike","flyStyle":"bat"},
+  {"id":"ember-infernospire","name":"Infernospire","region":"Ember Depths","tier":6,"sky0":"#18081a","sky1":"#d92a08","ground":"#0e050e","line":"#ff4a14","ob":"#ff8418","fly":"#ffcaa0","accent":"#ffd61f","star":false,"parallax":"lava","obStyle":"anvil","flyStyle":"ghost"},
+  {"id":"ember-ashenabyss","name":"Ashen Abyss","region":"Ember Depths","tier":6,"sky0":"#120610","sky1":"#b81f06","ground":"#0a040a","line":"#ff3c0e","ob":"#ff7a14","fly":"#ff9a4a","accent":"#ffcf16","star":true,"parallax":"caverns","obStyle":"bone","flyStyle":"bat"},
+  {"id":"reef-tidewrack","name":"Tidewrack Hollow","region":"Sunken Reef","tier":7,"sky0":"#0e4d5c","sky1":"#1c8a92","ground":"#08323c","line":"#2bb6a8","ob":"#ff7a59","fly":"#ff5fae","accent":"#ffe08a","star":false,"parallax":"waves","obStyle":"coral","flyStyle":"jelly"},
+  {"id":"reef-coralthorn","name":"Coralthorn Drift","region":"Sunken Reef","tier":7,"sky0":"#114a5e","sky1":"#1f7f96","ground":"#0a2c3a","line":"#34c0c8","ob":"#ff6b6b","fly":"#b07cff","accent":"#ffd166","star":false,"parallax":"crystals","obStyle":"coral","flyStyle":"jelly"},
+  {"id":"reef-anemonegarden","name":"Anemone Garden","region":"Sunken Reef","tier":7,"sky0":"#0f5566","sky1":"#259a9a","ground":"#0a3340","line":"#38c7b6","ob":"#ff9f1c","fly":"#ff5d8f","accent":"#f7f7c8","star":false,"parallax":"waves","obStyle":"spike","flyStyle":"jelly"},
+  {"id":"reef-kelpmaw","name":"Kelp Maw","region":"Sunken Reef","tier":7,"sky0":"#0c4a4a","sky1":"#1d8076","ground":"#07302e","line":"#4fb98a","ob":"#b6e63e","fly":"#ffce3a","accent":"#ff7e5f","star":false,"parallax":"bamboo","obStyle":"vine","flyStyle":"leaf"},
+  {"id":"reef-pearlhollow","name":"Pearl Hollow","region":"Sunken Reef","tier":7,"sky0":"#0a3a4a","sky1":"#155f70","ground":"#06222c","line":"#2aa0a8","ob":"#e8b4ff","fly":"#7fffd4","accent":"#ffd9f0","star":true,"parallax":"caverns","obStyle":"rock","flyStyle":"ghost"},
+  {"id":"reef-abyssbloom","name":"Abyss Bloom","region":"Sunken Reef","tier":7,"sky0":"#041e2e","sky1":"#0b4a5e","ground":"#020f18","line":"#1f8a96","ob":"#2ef2d4","fly":"#ff5fd2","accent":"#b8ff5f","star":true,"parallax":"space","obStyle":"crystal","flyStyle":"jelly"},
+  {"id":"reef-sunkenidol","name":"Sunken Idol","region":"Sunken Reef","tier":7,"sky0":"#0e4452","sky1":"#1c7a7e","ground":"#093036","line":"#3aa890","ob":"#ffb347","fly":"#ff6f91","accent":"#ffe7a0","star":false,"parallax":"ruins","obStyle":"totem","flyStyle":"bat"},
+  {"id":"reef-brinepillars","name":"Brine Pillars","region":"Sunken Reef","tier":7,"sky0":"#0d4858","sky1":"#1b8392","ground":"#082a34","line":"#2fb2b0","ob":"#ff8552","fly":"#b58cff","accent":"#f5ff8f","star":false,"parallax":"mountains","obStyle":"pillar","flyStyle":"drone"},
+  {"id":"reef-glasslagoon","name":"Glass Lagoon","region":"Sunken Reef","tier":7,"sky0":"#126476","sky1":"#28a7ad","ground":"#0b3641","line":"#44d0c4","ob":"#ff5c7a","fly":"#ffd23f","accent":"#9b5fff","star":false,"parallax":"waves","obStyle":"shard","flyStyle":"jelly"},
+  {"id":"reef-mantatrench","name":"Manta Trench","region":"Sunken Reef","tier":7,"sky0":"#0a3848","sky1":"#134f5e","ground":"#07232c","line":"#1f8e94","ob":"#eaf7ff","fly":"#7a5cff","accent":"#ff5fa0","star":false,"parallax":"dunes","obStyle":"tooth","flyStyle":"bat"},
+  {"id":"mesa-goldenveil","name":"Golden Veil","region":"Dust Mesa","tier":8,"sky0":"#5d4378","sky1":"#f2a95e","ground":"#6f3527","line":"#99492d","ob":"#2b1420","fly":"#ffe2ab","accent":"#ff7e3a","star":false,"parallax":"dunes","obStyle":"rock","flyStyle":"bird"},
+  {"id":"mesa-coppergale","name":"Copper Gale","region":"Dust Mesa","tier":8,"sky0":"#4a3866","sky1":"#e3924a","ground":"#6a3324","line":"#92452b","ob":"#241522","fly":"#f6d49b","accent":"#34c0b0","star":false,"parallax":"mountains","obStyle":"spike","flyStyle":"bird"},
+  {"id":"mesa-roseflare","name":"Rose Flare","region":"Dust Mesa","tier":8,"sky0":"#533a6e","sky1":"#ef9d77","ground":"#6d3330","line":"#9a4640","ob":"#2a1422","fly":"#ffd9c2","accent":"#ff6f9a","star":false,"parallax":"ruins","obStyle":"totem","flyStyle":"bat"},
+  {"id":"mesa-smokereach","name":"Smoke Reach","region":"Dust Mesa","tier":8,"sky0":"#46314f","sky1":"#db7038","ground":"#5e2c22","line":"#863a28","ob":"#1f1019","fly":"#f4c58a","accent":"#ff944d","star":false,"parallax":"dunes","obStyle":"rock","flyStyle":"leaf"},
+  {"id":"mesa-twilightspire","name":"Twilight Spire","region":"Dust Mesa","tier":8,"sky0":"#2a2150","sky1":"#b8624f","ground":"#532a2a","line":"#7a3d36","ob":"#d9a36a","fly":"#ffe6c0","accent":"#ffd166","star":true,"parallax":"crystals","obStyle":"shard","flyStyle":"bird"},
+  {"id":"mesa-crimsonmaw","name":"Crimson Maw","region":"Dust Mesa","tier":8,"sky0":"#3a1530","sky1":"#cf3b2e","ground":"#5a201f","line":"#8a2f28","ob":"#1a0a14","fly":"#f6c7a8","accent":"#ff5a3c","star":false,"parallax":"caverns","obStyle":"pylon","flyStyle":"bat"},
+  {"id":"mesa-emberhollow","name":"Ember Hollow","region":"Dust Mesa","tier":8,"sky0":"#20193f","sky1":"#8a3f4a","ground":"#461f24","line":"#6e3330","ob":"#caa06a","fly":"#c8d3ec","accent":"#ff7a4a","star":true,"parallax":"dunes","obStyle":"rock","flyStyle":"drone"},
+  {"id":"mesa-stormbluff","name":"Storm Bluff","region":"Dust Mesa","tier":8,"sky0":"#34303f","sky1":"#7d5a5a","ground":"#4d3530","line":"#6f4a40","ob":"#1c1820","fly":"#e8ddc8","accent":"#ff6b35","star":false,"parallax":"mountains","obStyle":"tooth","flyStyle":"bird"},
+  {"id":"mesa-violethush","name":"Violet Hush","region":"Dust Mesa","tier":8,"sky0":"#241236","sky1":"#5e2a5a","ground":"#3c1d33","line":"#5e2f47","ob":"#cf9a86","fly":"#c9a8e6","accent":"#4be0c4","star":true,"parallax":"aurora","obStyle":"crystal","flyStyle":"ghost"},
+  {"id":"mesa-lastlight","name":"Last Light","region":"Dust Mesa","tier":8,"sky0":"#160a1e","sky1":"#4a1830","ground":"#2e1320","line":"#5a2230","ob":"#b87850","fly":"#e8c9a0","accent":"#ff3d5a","star":true,"parallax":"space","obStyle":"pillar","flyStyle":"bird"},
+  {"id":"foundry-emberforge-hollow","name":"Emberforge Hollow","region":"Iron Foundry","tier":9,"sky0":"#1b1310","sky1":"#7a2e10","ground":"#211915","line":"#5c3826","ob":"#ff7a1f","fly":"#ffc46e","accent":"#ffe49a","star":false,"parallax":"factory","obStyle":"gear","flyStyle":"drone"},
+  {"id":"foundry-molten-spillway","name":"Molten Spillway","region":"Iron Foundry","tier":9,"sky0":"#160d0c","sky1":"#8c2406","ground":"#1c1310","line":"#6b2c12","ob":"#ff5a22","fly":"#ffb070","accent":"#ffd24a","star":false,"parallax":"lava","obStyle":"anvil","flyStyle":"drone"},
+  {"id":"foundry-cinder-gantry","name":"Cinder Gantry","region":"Iron Foundry","tier":9,"sky0":"#211a22","sky1":"#5a3340","ground":"#1e1a1d","line":"#4a3d44","ob":"#ff8a3d","fly":"#c9d4e0","accent":"#ffd86b","star":false,"parallax":"factory","obStyle":"drum","flyStyle":"bat"},
+  {"id":"foundry-rivet-skyline","name":"Rivet Skyline","region":"Iron Foundry","tier":9,"sky0":"#241a1c","sky1":"#9c4a22","ground":"#20181a","line":"#51372e","ob":"#ffae3c","fly":"#6fd0ff","accent":"#fff0b0","star":false,"parallax":"city","obStyle":"pylon","flyStyle":"drone"},
+  {"id":"foundry-slag-caverns","name":"Slag Caverns","region":"Iron Foundry","tier":9,"sky0":"#0d0a12","sky1":"#3a1410","ground":"#15100f","line":"#4a2418","ob":"#ff6a28","fly":"#d8b8ff","accent":"#ffd070","star":true,"parallax":"caverns","obStyle":"barrel","flyStyle":"ghost"},
+  {"id":"foundry-blastfurnace-run","name":"Blastfurnace Run","region":"Iron Foundry","tier":9,"sky0":"#1a1009","sky1":"#a83c08","ground":"#1f1410","line":"#5e3214","ob":"#ffd23a","fly":"#5fd8ff","accent":"#fff4c0","star":false,"parallax":"factory","obStyle":"gear","flyStyle":"drone"},
+  {"id":"foundry-ashfall-ruins","name":"Ashfall Ruins","region":"Iron Foundry","tier":9,"sky0":"#1c1718","sky1":"#4e2a26","ground":"#1a1614","line":"#463733","ob":"#ff9540","fly":"#e6ccae","accent":"#ffdf8e","star":false,"parallax":"ruins","obStyle":"slab","flyStyle":"drone"},
+  {"id":"foundry-iron-spine","name":"Iron Spine","region":"Iron Foundry","tier":9,"sky0":"#181b1f","sky1":"#6a3a2a","ground":"#15171a","line":"#3c4248","ob":"#ff8838","fly":"#b9c6d4","accent":"#ffd76a","star":false,"parallax":"mountains","obStyle":"spike","flyStyle":"bat"},
+  {"id":"foundry-forgeheart-core","name":"Forgeheart Core","region":"Iron Foundry","tier":9,"sky0":"#160b0a","sky1":"#b32a04","ground":"#1c0f0c","line":"#5c2410","ob":"#ff8a1c","fly":"#ffcf6a","accent":"#fff2c4","star":false,"parallax":"factory","obStyle":"gear","flyStyle":"drone"},
+  {"id":"foundry-crucible-overflow","name":"Crucible Overflow","region":"Iron Foundry","tier":9,"sky0":"#14090a","sky1":"#c81f04","ground":"#1a0d0c","line":"#62200e","ob":"#ffd33a","fly":"#7fe0c8","accent":"#fff6d2","star":false,"parallax":"lava","obStyle":"pillar","flyStyle":"jelly"},
+  {"id":"spire-voidcrown","name":"Voidcrown","region":"Celestial Spire","tier":10,"sky0":"#0a0418","sky1":"#2a0f4a","ground":"#120726","line":"#7b3fe4","ob":"#36e0ff","fly":"#ff5ed6","accent":"#fff3a8","star":true,"parallax":"space","obStyle":"crystal","flyStyle":"ghost"},
+  {"id":"spire-aurora-veil","name":"Aurora Veil","region":"Celestial Spire","tier":10,"sky0":"#03121a","sky1":"#0a2a3a","ground":"#06151f","line":"#ff7be5","ob":"#7dffb4","fly":"#b98cff","accent":"#eafff6","star":true,"parallax":"aurora","obStyle":"shard","flyStyle":"jelly"},
+  {"id":"spire-starforge","name":"Starforge","region":"Celestial Spire","tier":10,"sky0":"#140316","sky1":"#4a0f2e","ground":"#1a0712","line":"#ff6a3d","ob":"#ffb627","fly":"#ff4fa3","accent":"#fff0c2","star":true,"parallax":"space","obStyle":"crystal","flyStyle":"drone"},
+  {"id":"spire-glass-nebula","name":"Glass Nebula","region":"Celestial Spire","tier":10,"sky0":"#06091f","sky1":"#161a52","ground":"#0a0c26","line":"#5566ff","ob":"#9be8ff","fly":"#d6a3ff","accent":"#ffffff","star":true,"parallax":"crystals","obStyle":"ice","flyStyle":"ghost"},
+  {"id":"spire-cometfall","name":"Cometfall","region":"Celestial Spire","tier":10,"sky0":"#04071c","sky1":"#0d2050","ground":"#07112e","line":"#2f6dff","ob":"#c8f6ff","fly":"#ffd23f","accent":"#79f0ff","star":true,"parallax":"space","obStyle":"shard","flyStyle":"drone"},
+  {"id":"spire-eventide-rim","name":"Eventide Rim","region":"Celestial Spire","tier":10,"sky0":"#0c0316","sky1":"#5a1830","ground":"#120519","line":"#ff8a3d","ob":"#ffc14d","fly":"#b46bff","accent":"#ffe9c2","star":true,"parallax":"space","obStyle":"pylon","flyStyle":"ghost"},
+  {"id":"spire-frozen-orbit","name":"Frozen Orbit","region":"Celestial Spire","tier":10,"sky0":"#04101c","sky1":"#0c2e44","ground":"#06182a","line":"#4fd0ff","ob":"#aef2ff","fly":"#8fb8ff","accent":"#ffffff","star":true,"parallax":"crystals","obStyle":"ice","flyStyle":"jelly"},
+  {"id":"spire-celestine-keep","name":"Celestine Keep","region":"Celestial Spire","tier":10,"sky0":"#0a0520","sky1":"#2c1456","ground":"#0f0a2c","line":"#8a6bff","ob":"#ffd166","fly":"#6be0ff","accent":"#fff3cf","star":true,"parallax":"ruins","obStyle":"totem","flyStyle":"ghost"},
+  {"id":"spire-nebular-deep","name":"Nebular Deep","region":"Celestial Spire","tier":10,"sky0":"#05030f","sky1":"#1b0a3a","ground":"#0a0518","line":"#6a2fd0","ob":"#36ffd0","fly":"#ff79c6","accent":"#c8a8ff","star":true,"parallax":"caverns","obStyle":"crystal","flyStyle":"bat"},
+  {"id":"spire-zenith-throne","name":"Zenith Throne","region":"Celestial Spire","tier":10,"sky0":"#060311","sky1":"#3a0c5e","ground":"#0c0420","line":"#ff3cac","ob":"#00f0ff","fly":"#ffd23f","accent":"#ffffff","star":true,"parallax":"space","obStyle":"crystal","flyStyle":"ghost"}
+  /*__THEMES_END__*/
+];
+
+/* ---- 5. ROSTER — named skitterlings (DATA, seed = name) ----------------- */
+const ROSTER = [
+  /*__ROSTER_START__*/
+  {"name":"Pibblesprout","biome":"Verdant Meadows","blurb":"Naps inside dandelion puffs"},
+  {"name":"Clovin","biome":"Verdant Meadows","blurb":"Hoards four-leaf clovers greedily"},
+  {"name":"Dewbble","biome":"Verdant Meadows","blurb":"Sips morning dew at dawn"},
+  {"name":"Mossmuffin","biome":"Verdant Meadows","blurb":"Soft, green, eternally hungry"},
+  {"name":"Buttercoot","biome":"Verdant Meadows","blurb":"Wears a buttercup crown proudly"},
+  {"name":"Grasshollow","biome":"Verdant Meadows","blurb":"Tunnels through tall meadow grass"},
+  {"name":"Pippet","biome":"Verdant Meadows","blurb":"Hums to sleeping wildflowers"},
+  {"name":"Bumblo","biome":"Verdant Meadows","blurb":"Chases bees, never catches"},
+  {"name":"Snugleaf","biome":"Verdant Meadows","blurb":"Curls beneath a single leaf"},
+  {"name":"Tindle","biome":"Verdant Meadows","blurb":"Glows faint in twilight fields"},
+  {"name":"Marshmip","biome":"Candy Coast","blurb":"Bounces on sugary marshmallow shores"},
+  {"name":"Glimber","biome":"Celestial Spire","blurb":"Catches falling stars in mittens"},
+  {"name":"Frostnip","biome":"Frostpeak","blurb":"Sneezes tiny crystal snowflakes"},
+  {"name":"Cindrel","biome":"Ember Depths","blurb":"Warms paws on glowing coals"},
+  {"name":"Bubblefin","biome":"Sunken Reef","blurb":"Blows pearls instead of bubbles"},
+  {"name":"Cogglet","biome":"Iron Foundry","blurb":"Ticks softly like a clock"},
+  {"name":"Neonox","biome":"Synthwave Grid","blurb":"Flickers neon when excited"},
+  {"name":"Pricklepip","biome":"Dust Mesa","blurb":"Rolls like tiny tumbleweed"},
+  {"name":"Thornwick","biome":"Deep Forest","blurb":"Guards the oldest mushroom ring"},
+  {"name":"Wispel","biome":"Deep Forest","blurb":"Drifts between shadowed ancient ferns"},
+  {"name":"Gumdrip","biome":"Candy Coast","blurb":"Leaves sticky little footprints everywhe"},
+  {"name":"Tafflewick","biome":"Candy Coast","blurb":"Stretches longer when nervous"},
+  {"name":"Sherbie","biome":"Candy Coast","blurb":"Fizzes with sugary delight"},
+  {"name":"Marshlow","biome":"Candy Coast","blurb":"Squishiest pillow on the shore"},
+  {"name":"Lollibean","biome":"Candy Coast","blurb":"Twirls atop a candy stem"},
+  {"name":"Fizzlepop","biome":"Candy Coast","blurb":"Bubbles over with soda glee"},
+  {"name":"Caramoo","biome":"Candy Coast","blurb":"Slow, golden, endlessly gooey"},
+  {"name":"Peppernib","biome":"Candy Coast","blurb":"Minty and mildly mischievous"},
+  {"name":"Sprinklet","biome":"Candy Coast","blurb":"Shimmers in rainbow sugar dust"},
+  {"name":"Cloverbun","biome":"Verdant Meadows","blurb":"Hops through the morning dew"},
+  {"name":"Thornip","biome":"Deep Forest","blurb":"Hides beneath the oldest roots"},
+  {"name":"Glowmoth","biome":"Deep Forest","blurb":"Flutters with faint green light"},
+  {"name":"Neonix","biome":"Synthwave Grid","blurb":"Glitches in soft pink static"},
+  {"name":"Voltzy","biome":"Synthwave Grid","blurb":"Hums one endless electric tune"},
+  {"name":"Frostnib","biome":"Frostpeak","blurb":"Sneezes out tiny snowflakes"},
+  {"name":"Cinderpuff","biome":"Ember Depths","blurb":"Coughs little warm sparks"},
+  {"name":"Pebblewick","biome":"Dust Mesa","blurb":"Rolls across the red sand"},
+  {"name":"Boltkin","biome":"Iron Foundry","blurb":"Tinkers with every loose screw"},
+  {"name":"Starnubble","biome":"Celestial Spire","blurb":"Collects fallen flecks of stardust"},
+  {"name":"Bramblewick","biome":"Deep Forest","blurb":"Tangles thorns into cozy nests"},
+  {"name":"Fernlet","biome":"Deep Forest","blurb":"Unfurls a new frond daily"},
+  {"name":"Truffleboo","biome":"Deep Forest","blurb":"Snuffles mushrooms under mossy logs"},
+  {"name":"Hollowtwig","biome":"Deep Forest","blurb":"Hides acorns in its antlers"},
+  {"name":"Dewsprig","biome":"Deep Forest","blurb":"Wears morning mist like dewdrops"},
+  {"name":"Owlnubbin","biome":"Deep Forest","blurb":"Blinks slow, hoots softly"},
+  {"name":"Sporepip","biome":"Deep Forest","blurb":"Puffs tiny spore clouds, giggling"},
+  {"name":"Barklump","biome":"Deep Forest","blurb":"Naps disguised as a stump"},
+  {"name":"Pipwick","biome":"Verdant Meadows","blurb":"Bounces through dandelion seed storms"},
+  {"name":"Clovette","biome":"Verdant Meadows","blurb":"Collects four-leaf lucky charms"},
+  {"name":"Marshmellow","biome":"Candy Coast","blurb":"Squishes soft, smells of sugar"},
+  {"name":"Gumblossom","biome":"Candy Coast","blurb":"Blows bubblegum into pink balloons"},
+  {"name":"Vexlight","biome":"Synthwave Grid","blurb":"Flickers neon when excited"},
+  {"name":"Frostnubble","biome":"Frostpeak","blurb":"Sneezes tiny twirling snowflakes"},
+  {"name":"Cinderpip","biome":"Ember Depths","blurb":"Warms cold paws on request"},
+  {"name":"Dustmote","biome":"Dust Mesa","blurb":"Rides whirlwinds across the flats"},
+  {"name":"Starbindle","biome":"Celestial Spire","blurb":"Hoards stardust in its pockets"},
+  {"name":"Voxel","biome":"Synthwave Grid","blurb":"Glows brighter when bass drops."},
+  {"name":"Neondle","biome":"Synthwave Grid","blurb":"Hums in electric pink."},
+  {"name":"Vaprette","biome":"Synthwave Grid","blurb":"Trails violet mist when dashing."},
+  {"name":"Gridge","biome":"Synthwave Grid","blurb":"Snaps along the neon lines."},
+  {"name":"Pixly","biome":"Synthwave Grid","blurb":"Blinks in sixteen colors."},
+  {"name":"Lazoot","biome":"Synthwave Grid","blurb":"Beams tiny laser hearts."},
+  {"name":"Synthpip","biome":"Synthwave Grid","blurb":"Beeps a cheerful retro tune."},
+  {"name":"Glowbit","biome":"Synthwave Grid","blurb":"Charges up on arcade light."},
+  {"name":"Chromuff","biome":"Synthwave Grid","blurb":"Reflects every sunset hue."},
+  {"name":"Wirewisp","biome":"Synthwave Grid","blurb":"Skates the glowing circuit lanes."},
+  {"name":"Cloverbumble","biome":"Verdant Meadows","blurb":"Bumbles through the tall grass."},
+  {"name":"Taffowisp","biome":"Candy Coast","blurb":"Sticky paws, sweeter smile."},
+  {"name":"Fernwick","biome":"Deep Forest","blurb":"Hides beneath the oldest roots."},
+  {"name":"Frosnip","biome":"Frostpeak","blurb":"Sneezes tiny perfect snowflakes."},
+  {"name":"Cindermuck","biome":"Ember Depths","blurb":"Naps on warm glowing coals."},
+  {"name":"Bubbloon","biome":"Sunken Reef","blurb":"Floats on its own bubbles."},
+  {"name":"Dustyl","biome":"Dust Mesa","blurb":"Rolls like a tumbleweed pup."},
+  {"name":"Starlumen","biome":"Celestial Spire","blurb":"Pockets a handful of stars."},
+  {"name":"Astralune","biome":"Celestial Spire","blurb":"Drifts between the constellations."},
+  {"name":"Snowdle","biome":"Frostpeak","blurb":"Hums lullabies in blizzards"},
+  {"name":"Frittle","biome":"Frostpeak","blurb":"Sneezes tiny snowflakes constantly"},
+  {"name":"Iciwick","biome":"Frostpeak","blurb":"Collects frozen dewdrop marbles"},
+  {"name":"Glacimble","biome":"Frostpeak","blurb":"Naps inside hollow icicles"},
+  {"name":"Pufflin","biome":"Frostpeak","blurb":"Wears a permanent frost scarf"},
+  {"name":"Shiverkin","biome":"Frostpeak","blurb":"Shivers to stay extra cozy"},
+  {"name":"Mittentot","biome":"Frostpeak","blurb":"Born with fuzzy built-in mittens"},
+  {"name":"Crystabel","biome":"Frostpeak","blurb":"Glows pale blue under moonlight"},
+  {"name":"Floofrost","biome":"Frostpeak","blurb":"A walking ball of snowfluff"},
+  {"name":"Sproutle","biome":"Verdant Meadows","blurb":"Wears a clover for a hat"},
+  {"name":"Tafflet","biome":"Candy Coast","blurb":"Smells of warm sea taffy"},
+  {"name":"Mossglint","biome":"Deep Forest","blurb":"Whispers to sleeping mushrooms"},
+  {"name":"Voltini","biome":"Synthwave Grid","blurb":"Buzzes with neon pixel sparks"},
+  {"name":"Cindermop","biome":"Ember Depths","blurb":"Mops up stray little embers"},
+  {"name":"Bubbloo","biome":"Sunken Reef","blurb":"Blows pearlescent bubble rings"},
+  {"name":"Pebblud","biome":"Dust Mesa","blurb":"Hoards smooth warm desert stones"},
+  {"name":"Astrobble","biome":"Celestial Spire","blurb":"Counts stars it cannot reach"},
+  {"name":"Twinklit","biome":"Celestial Spire","blurb":"Carries a borrowed bit of dawn"},
+  {"name":"Cindermote","biome":"Ember Depths","blurb":"Sneezes tiny sparks when startled"},
+  {"name":"Emberwick","biome":"Ember Depths","blurb":"Glows brighter when hugged"},
+  {"name":"Lavabean","biome":"Ember Depths","blurb":"Wobbles warm and never cools"},
+  {"name":"Sootle","biome":"Ember Depths","blurb":"Leaves smudgy little footprints everywhe"},
+  {"name":"Pyrnip","biome":"Ember Depths","blurb":"Hoards glowing coals like candy"},
+  {"name":"Charrow","biome":"Ember Depths","blurb":"Hums lullabies from molten cracks"},
+  {"name":"Magmullet","biome":"Ember Depths","blurb":"Bobs along rivers of fire"},
+  {"name":"Flickwhisp","biome":"Ember Depths","blurb":"A flame that giggles softly"},
+  {"name":"Taffly","biome":"Candy Coast","blurb":"Stretchy, sticky, eternally smiling"},
+  {"name":"Bramblepip","biome":"Deep Forest","blurb":"Hides beneath toadstool umbrellas"},
+  {"name":"Voltie","biome":"Synthwave Grid","blurb":"Buzzes neon when it dances"},
+  {"name":"Cobbleknock","biome":"Iron Foundry","blurb":"Taps rhythms on warm pipes"},
+  {"name":"Dustwhittle","biome":"Dust Mesa","blurb":"Rolls through sunbaked canyon trails"},
+  {"name":"Coralwink","biome":"Sunken Reef","blurb":"Blinks bubbles at curious fish"},
+  {"name":"Ashpuff","biome":"Ember Depths","blurb":"Puffs cozy clouds of warmth"},
+  {"name":"Bubblet","biome":"Sunken Reef","blurb":"Hiccups glittering pearls when startled"},
+  {"name":"Coralina","biome":"Sunken Reef","blurb":"Wears barnacle bonnets quite proudly"},
+  {"name":"Glubworth","biome":"Sunken Reef","blurb":"Hums lullabies through coral tubes"},
+  {"name":"Finnery","biome":"Sunken Reef","blurb":"Darts between swaying anemone curtains"},
+  {"name":"Pearlnook","biome":"Sunken Reef","blurb":"Hoards seafoam inside its shell"},
+  {"name":"Tidwick","biome":"Sunken Reef","blurb":"Rides every passing current homeward"},
+  {"name":"Nautlin","biome":"Sunken Reef","blurb":"Spirals through moonlit shallow tidepool"},
+  {"name":"Squidgle","biome":"Sunken Reef","blurb":"Inkblots tiny shy little hearts"},
+  {"name":"Reefkin","biome":"Sunken Reef","blurb":"Naps inside abandoned cozy clamshells"},
+  {"name":"Mirelle","biome":"Sunken Reef","blurb":"Glows faintly along deep trenches"},
+  {"name":"Splooshet","biome":"Sunken Reef","blurb":"Splashes cheery greetings at lowtide"},
+  {"name":"Cloverbean","biome":"Verdant Meadows","blurb":"Tumbles through dewy clover patches"},
+  {"name":"Gumdroplet","biome":"Candy Coast","blurb":"Sticky paws, even sweeter grin"},
+  {"name":"Thornwhistle","biome":"Deep Forest","blurb":"Whittles flutes from fallen twigs"},
+  {"name":"Neonib","biome":"Synthwave Grid","blurb":"Blinks in retro magenta pulses"},
+  {"name":"Cactuckle","biome":"Dust Mesa","blurb":"Giggles beneath the scorching noon"},
+  {"name":"Boltwick","biome":"Iron Foundry","blurb":"Tightens loose screws for fun"},
+  {"name":"Starnook","biome":"Celestial Spire","blurb":"Pockets shooting stars for later"},
+  {"name":"Sandquibble","biome":"Dust Mesa","blurb":"Hoards warm pebbles in cheeks"},
+  {"name":"Cactini","biome":"Dust Mesa","blurb":"Tiny spines, tinier hugs"},
+  {"name":"Mesapip","biome":"Dust Mesa","blurb":"Naps on sun-baked stones"},
+  {"name":"Gulchwig","biome":"Dust Mesa","blurb":"Surfs dry riverbed gusts"},
+  {"name":"Tumbleknack","biome":"Dust Mesa","blurb":"Rolls home with the wind"},
+  {"name":"Buttewick","biome":"Dust Mesa","blurb":"Perches atop crumbling cliffs"},
+  {"name":"Scorchle","biome":"Dust Mesa","blurb":"Glows faintly at high noon"},
+  {"name":"Dustwumple","biome":"Dust Mesa","blurb":"Sneezes adorable little clouds"},
+  {"name":"Quartzle","biome":"Dust Mesa","blurb":"Collects shiny desert glass"},
+  {"name":"Coyowee","biome":"Dust Mesa","blurb":"Yips at painted sunsets"},
+  {"name":"Mirabean","biome":"Dust Mesa","blurb":"Mistaken for shimmering mirages"},
+  {"name":"Gritmuffin","biome":"Dust Mesa","blurb":"Burrows under cracked clay"},
+  {"name":"Pollenpuff","biome":"Verdant Meadows","blurb":"Trails glitter through tall grass"},
+  {"name":"Taffwick","biome":"Candy Coast","blurb":"Stretches into sugary ribbons"},
+  {"name":"Bublik","biome":"Sunken Reef","blurb":"Blows iridescent pearl bubbles"},
+  {"name":"Mosslet","biome":"Deep Forest","blurb":"Wears a velvet fern cap"}
+  /*__ROSTER_END__*/
+];
+const ROSTER_BY_NAME = {};
+ROSTER.forEach(r => { ROSTER_BY_NAME[r.name.toLowerCase()] = r; });
+/* Procedural name generator — every seed gets a stable, cute name, so the
+   (effectively unbounded) generated critters all feel like named collectibles.
+   Curated ROSTER names still win when a seed matches one (signature critters). */
+const NM_STEM = ["Pip","Mo","Bli","Tum","Gli","Squi","Bo","Nib","Zib","Wif","Dou","Fen","Hux","Jib","Kor","Lun","Mur","Nix","Ob","Pud","Qui","Rol","Sno","Tad","Umb","Vel","Wob","Yix","Zep","Bram","Cluck","Dot","Fizz","Gum","Hob","Juju","Kiki","Lolo","Momo","Pock"];
+const NM_END  = ["kin","wick","muffin","ble","bit","let","ling","puff","top","snout","whisk","bert","ulo","ina","oo","sy","zle","dot","pop","nip","tuft","bo","fer","gus","ette","ax","im","or"];
+const NM_TITLE = ["the Radiant","the Ancient","the Cosmic","the Gilded","the Shimmering","the Eternal","Prime","the Starborn"];
+function nameFor(seed) {
+  seed = String(seed);
+  if (seed === "starter") return "Starter";
+  const sig = ROSTER_BY_NAME[seed.toLowerCase()];
+  if (sig) return sig.name;
+  const r = mulberry32(hashStr("nm:" + seed));
+  let nm = NM_STEM[Math.floor(r() * NM_STEM.length)] + NM_END[Math.floor(r() * NM_END.length)];
+  if (Skins.traits(seed).rarIdx >= 4) nm += " " + NM_TITLE[Math.floor(r() * NM_TITLE.length)];
+  return nm;
+}
+const charName = nameFor;
+
+const themeById = id => THEMES.find(t => t.id === id) || THEMES[0];
+const priceOf = idx => idx < 3 ? 0 : Math.round(40 + idx * 6);
+const themeIndex = id => { const i = THEMES.findIndex(t => t.id === id); return i < 0 ? 0 : i; };
+
+/* ---- 6. SAVE / WALLET --------------------------------------------------- */
+/* NOTE: `save.coins` is the only currency field. To plug into the cross-game
+   sunbeam / Sky Wolf portal economy, replace persist()/coin reads with an
+   adapter that reads/writes the shared balance instead of local storage.     */
+const SK_LAUNCH = (() => { try { return new URLSearchParams(location.search); } catch (e) { return new URLSearchParams(""); } })();
+const SK_UID = SK_LAUNCH.get("uid") || null;     // host passes ?uid=... so each player gets their own save
+const SAVE_KEY = "skitterlings_save_v1" + (SK_UID ? ":" + SK_UID : "");
+function defaultSave() {
+  return { coins: 0, best: 0, owned: ["starter"], equipped: "starter", favorites: [],
+           themes: [THEMES[0].id], theme: THEMES[0].id, muted: false, reached: 0 };
+}
+let save = Object.assign(defaultSave(), Store.get(SAVE_KEY, {}));
+// migrate / sanitize against current THEMES + ROSTER
+const VALID = new Set(THEMES.map(t => t.id));
+save.themes = (save.themes || []).filter(id => VALID.has(id));
+if (!save.themes.includes(THEMES[0].id)) save.themes.unshift(THEMES[0].id);
+if (!VALID.has(save.theme)) save.theme = THEMES[0].id;
+if (!Array.isArray(save.owned)) save.owned = ["starter"];
+if (!save.owned.includes("starter")) save.owned.unshift("starter");
+if (!save.owned.includes(save.equipped)) save.equipped = "starter";
+if (!Array.isArray(save.favorites)) save.favorites = [];
+save.favorites = save.favorites.filter(s => save.owned.includes(s)).slice(0, 3);
+const FAV_MAX = 3;
+function persist() { Store.set(SAVE_KEY, save); }
+function unlockWorld(id) { if (!save.themes.includes(id)) { save.themes.push(id); persist(); Bridge.emit("world-unlocked", { id: id, count: save.themes.length }); } }
+function isFav(seed) { return save.favorites.includes(seed); }
+function toggleFav(seed) {                      // max 3; adding a 4th bumps the oldest
+  const i = save.favorites.indexOf(seed);
+  if (i >= 0) save.favorites.splice(i, 1);
+  else { if (save.favorites.length >= FAV_MAX) save.favorites.shift(); save.favorites.push(seed); }
+  persist(); return isFav(seed);
+}
+
+/* ---- 7. AUDIO ----------------------------------------------------------- */
+const Sfx = (() => {
+  let ctx = null;
+  const on = () => { try { if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)(); if (ctx && ctx.state === "suspended") ctx.resume(); } catch (e) {} };
+  function blip(freq, dur, type, vol) {
+    if (save.muted) return; on(); if (!ctx) return;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type || "square"; o.frequency.value = freq; g.gain.value = vol || 0.06;
+    o.connect(g); g.connect(ctx.destination);
+    const t = ctx.currentTime; o.start(t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur); o.stop(t + dur);
+  }
+  return {
+    resume: on,
+    jump: () => blip(540, .12, "square", .05),
+    coin: () => { blip(880, .07, "triangle", .05); setTimeout(() => blip(1320, .09, "triangle", .045), 60); },
+    stage: () => { blip(660, .1, "triangle", .05); setTimeout(() => blip(990, .14, "triangle", .05), 90); },
+    hit:  () => { blip(160, .18, "sawtooth", .08); setTimeout(() => blip(90, .25, "sawtooth", .07), 70); }
+  };
+})();
+
+/* ---- 8. RENDERERS — parallax + obstacle + flyer libraries ---------------
+   Each is a pure draw fn into the 960x300 virtual canvas. Dispatched through
+   maps with a try/catch so one bad theme can never crash the run loop.       */
+function rrect(c, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  c.beginPath(); c.moveTo(x + r, y);
+  c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+}
+/* ----- 8a. PARALLAX backgrounds (read G.dist / G.clock) ----- */
+const GROUND = () => CFG.groundY, GW = () => CFG.GW;
+function bgGrid(c, th) { const gy = GROUND(); c.strokeStyle = th.line + "55"; c.lineWidth = 2; for (let i = 0; i < 12; i++) { const y = gy - i * 18; c.globalAlpha *= 1; c.beginPath(); c.moveTo(0, y); c.lineTo(GW(), y); c.stroke(); } const off = (G.dist * 0.4) % 60; for (let i = -10; i < 20; i++) { const x = GW() / 2 + i * 60 - off; c.beginPath(); c.moveTo(GW() / 2, gy - 200); c.lineTo(x, gy); c.stroke(); } }
+function bgClouds(c, th) { const off = (G.dist * 0.18) % 220; c.fillStyle = "#ffffffcc"; for (let i = -1; i < 6; i++) { const x = i * 220 - off, y = 55 + ((i * 37) % 50); c.beginPath(); c.ellipse(x + 60, y, 46, 22, 0, 0, 7); c.ellipse(x + 100, y + 6, 34, 18, 0, 0, 7); c.ellipse(x + 30, y + 8, 30, 16, 0, 0, 7); c.fill(); } }
+function bgTrees(c, th) { const gy = GROUND(); c.fillStyle = th.line + "55"; for (let i = -1; i < 9; i++) { const off = (G.dist * 0.16) % 150; const x = i * 150 - off; c.beginPath(); c.moveTo(x, gy); c.lineTo(x + 24, gy - 70); c.lineTo(x + 48, gy); c.fill(); c.beginPath(); c.moveTo(x + 8, gy); c.lineTo(x + 24, gy - 110); c.lineTo(x + 40, gy); c.fill(); } }
+function bgCity(c, th) { const gy = GROUND(); const off = (G.dist * 0.22) % 160; c.fillStyle = (th.sky0) + "99"; for (let i = -1; i < 9; i++) { const x = i * 160 - off, h = 60 + ((i * 53) % 90); c.fillRect(x, gy - h, 110, h); c.fillStyle = th.accent + "33"; for (let wy = gy - h + 10; wy < gy - 8; wy += 18) for (let wx = x + 10; wx < x + 100; wx += 22) c.fillRect(wx, wy, 8, 9); c.fillStyle = (th.sky0) + "99"; } }
+function bgMountains(c, th) { const gy = GROUND(); const off = (G.dist * 0.10) % 260; c.fillStyle = th.line + "66"; for (let i = -1; i < 6; i++) { const x = i * 260 - off; c.beginPath(); c.moveTo(x, gy); c.lineTo(x + 130, gy - 130); c.lineTo(x + 260, gy); c.fill(); c.fillStyle = "#ffffff66"; c.beginPath(); c.moveTo(x + 100, gy - 80); c.lineTo(x + 130, gy - 130); c.lineTo(x + 160, gy - 80); c.fill(); c.fillStyle = th.line + "66"; } }
+function bgDunes(c, th) { const gy = GROUND(); for (let l = 0; l < 3; l++) { const off = (G.dist * (0.08 + l * 0.05)) % 320; c.fillStyle = th.line + (l === 0 ? "44" : l === 1 ? "66" : "88"); c.beginPath(); c.moveTo(-20, gy); for (let x = -20; x <= GW() + 20; x += 40) { const y = gy - 40 - l * 18 - Math.sin((x + off) * 0.012 + l) * (18 + l * 6); c.lineTo(x, y); } c.lineTo(GW() + 20, gy); c.fill(); } }
+function bgWaves(c, th) { const gy = GROUND(); for (let l = 0; l < 4; l++) { const off = G.clock * (12 + l * 8) + l * 40; c.strokeStyle = th.accent + (l < 2 ? "33" : "55"); c.lineWidth = 2; c.beginPath(); const yy = 70 + l * 34; for (let x = 0; x <= GW(); x += 16) c.lineTo(x, yy + Math.sin(x * 0.04 + off * 0.05) * 5); c.stroke(); } c.fillStyle = "#ffffff22"; for (let i = 0; i < 14; i++) { const x = (i * 90 + G.clock * 14) % GW(); const y = 60 + ((i * 53) % (gy - 90)); c.beginPath(); c.arc(x, y, 3 + (i % 3), 0, 7); c.fill(); } }
+function bgCaverns(c, th) { const gy = GROUND(); const off = (G.dist * 0.12) % 90; c.fillStyle = th.line + "88"; for (let i = -1; i < 14; i++) { const x = i * 90 - off; const h = 30 + ((i * 41) % 60); c.beginPath(); c.moveTo(x, 0); c.lineTo(x + 22, h); c.lineTo(x + 44, 0); c.fill(); } c.fillStyle = th.line + "66"; for (let i = -1; i < 14; i++) { const x = i * 90 - off + 30; const h = 24 + ((i * 29) % 40); c.beginPath(); c.moveTo(x, gy - 60); c.lineTo(x + 18, gy - 60 - h); c.lineTo(x + 36, gy - 60); c.fill(); } }
+function bgAurora(c, th) { for (let l = 0; l < 3; l++) { c.fillStyle = (l === 0 ? th.accent : l === 1 ? th.line : th.fly) + "22"; c.beginPath(); const base = 40 + l * 20, sp = G.clock * (0.4 + l * 0.2); c.moveTo(0, 0); for (let x = 0; x <= GW(); x += 24) c.lineTo(x, base + Math.sin(x * 0.012 + sp) * 26 + Math.sin(x * 0.03 + sp * 1.7) * 10); c.lineTo(GW(), 0); c.fill(); } }
+function bgLava(c, th) { const gy = GROUND(); c.fillStyle = th.line + "33"; for (let i = -1; i < 12; i++) { const off = (G.dist * 0.10) % 110; const x = i * 110 - off, h = 40 + ((i * 47) % 70); c.beginPath(); c.moveTo(x, gy); c.lineTo(x + 28, gy - h); c.lineTo(x + 56, gy); c.fill(); } c.fillStyle = th.accent + "cc"; for (let i = 0; i < 16; i++) { const x = (i * 73 + G.clock * 10) % GW(); const y = gy - 6 - (Math.sin(G.clock * 2 + i) * 0.5 + 0.5) * 50; c.beginPath(); c.arc(x, y, 2 + (i % 2), 0, 7); c.fill(); } }
+function bgRuins(c, th) { const gy = GROUND(); const off = (G.dist * 0.14) % 180; c.fillStyle = th.line + "66"; for (let i = -1; i < 8; i++) { const x = i * 180 - off; const h = 70 + ((i * 37) % 60); c.fillRect(x, gy - h, 20, h); c.fillRect(x + 50, gy - h * 0.7, 20, h * 0.7); for (let k = 0; k < 3; k++) c.fillRect(x - 6, gy - h + k * (h / 3), 90, 6); } }
+function bgBamboo(c, th) { const gy = GROUND(); const off = (G.dist * 0.2) % 46; c.strokeStyle = th.line + "77"; c.lineWidth = 8; for (let i = -1; i < 26; i++) { const x = i * 46 - off; c.beginPath(); c.moveTo(x, gy); c.lineTo(x - 6, gy - 150); c.stroke(); } c.fillStyle = th.accent + "55"; for (let i = -1; i < 26; i += 2) { const x = i * 46 - off; c.beginPath(); c.ellipse(x - 4, gy - 120, 22, 8, -0.4, 0, 7); c.fill(); } }
+function bgCrystals(c, th) { const gy = GROUND(); const off = (G.dist * 0.12) % 130; for (let i = -1; i < 11; i++) { const x = i * 130 - off, h = 50 + ((i * 53) % 80); c.fillStyle = th.line + "77"; c.beginPath(); c.moveTo(x, gy); c.lineTo(x + 16, gy - h); c.lineTo(x + 32, gy); c.fill(); c.fillStyle = th.accent + "55"; c.beginPath(); c.moveTo(x + 16, gy - h); c.lineTo(x + 24, gy - h * 0.5); c.lineTo(x + 32, gy); c.fill(); } }
+function bgFactory(c, th) { const gy = GROUND(); const off = (G.dist * 0.16) % 200; c.fillStyle = th.line + "77"; for (let i = -1; i < 7; i++) { const x = i * 200 - off; c.fillRect(x, gy - 90, 70, 90); c.fillRect(x + 80, gy - 60, 40, 60); for (let k = 0; k < 3; k++) c.fillRect(x + 18 + k * 18, gy - 130 - k * 4, 12, 50); c.fillStyle = "#ffffff18"; for (let s = 0; s < 4; s++) { const sx = x + 24 + (G.clock * 8 + s * 30) % 60, sy = gy - 130 - (G.clock * 12 + s * 25) % 60; c.beginPath(); c.arc(sx, sy, 8, 0, 7); c.fill(); } c.fillStyle = th.line + "77"; } }
+function bgMushrooms(c, th) { const gy = GROUND(); const off = (G.dist * 0.15) % 170; for (let i = -1; i < 9; i++) { const x = i * 170 - off, h = 60 + ((i * 41) % 50); c.fillStyle = th.line + "66"; c.fillRect(x + 14, gy - h, 12, h); c.fillStyle = th.accent + "88"; c.beginPath(); c.ellipse(x + 20, gy - h, 36, 20, 0, Math.PI, 0); c.fill(); c.fillStyle = "#ffffff66"; [8, 24, 16].forEach((dx, k) => { c.beginPath(); c.arc(x + dx, gy - h - 4 - (k % 2) * 4, 3, 0, 7); c.fill(); }); } }
+function bgSpace(c, th) { for (let i = 0; i < 3; i++) { const x = (i * 360 + 120 - (G.dist * 0.04) % 1080); c.fillStyle = [th.line, th.fly, th.accent][i] + "44"; c.beginPath(); c.arc((x % (GW() + 200)) - 60, 60 + i * 20, 26 - i * 4, 0, 7); c.fill(); } c.fillStyle = th.accent + "33"; const rx = GW() - 140; c.save(); c.translate(rx, 80); c.rotate(0.4); c.beginPath(); c.ellipse(0, 0, 60, 14, 0, 0, 7); c.stroke(); c.restore(); }
+function bgHills(c, th) { const gy = GROUND(); for (let l = 0; l < 3; l++) { const off = (G.dist * (0.06 + l * 0.05)) % 400; c.fillStyle = th.line + (l === 0 ? "33" : l === 1 ? "55" : "77"); c.beginPath(); c.moveTo(-20, gy); for (let x = -20; x <= GW() + 20; x += 30) c.lineTo(x, gy - 30 - l * 14 - Math.sin((x + off) * 0.008 + l * 2) * (26 - l * 4)); c.lineTo(GW() + 20, gy); c.fill(); } }
+function bgCandy(c, th) { const off = (G.dist * 0.16) % 200; c.fillStyle = "#ffffffcc"; for (let i = -1; i < 7; i++) { const x = i * 200 - off, y = 60 + ((i * 41) % 40); c.beginPath(); c.ellipse(x + 50, y, 40, 24, 0, 0, 7); c.ellipse(x + 84, y + 6, 30, 18, 0, 0, 7); c.fill(); } c.fillStyle = th.accent + "88"; for (let i = 0; i < 10; i++) { const x = (i * 110 + 20) % GW(); c.save(); c.translate(x, 40 + (i % 3) * 10); c.rotate(0.5); rrect(c, -4, -12, 8, 24, 4); c.fill(); c.restore(); } }
+
+const BG = { grid: bgGrid, clouds: bgClouds, trees: bgTrees, city: bgCity, mountains: bgMountains,
+  dunes: bgDunes, waves: bgWaves, caverns: bgCaverns, aurora: bgAurora, lava: bgLava, ruins: bgRuins,
+  bamboo: bgBamboo, crystals: bgCrystals, factory: bgFactory, mushrooms: bgMushrooms, space: bgSpace,
+  hills: bgHills, candy: bgCandy };
+function drawParallax(c, th, alpha) {
+  if (alpha <= 0.01) return;
+  c.save(); c.globalAlpha = alpha;
+  try { (BG[th.parallax] || bgHills)(c, th); } catch (e) {}
+  c.restore();
+}
+
+/* ----- 8b. OBSTACLE styles — all ground-anchored, jump-clearable ----- */
+function obBlock(c, o) { c.fillStyle = o.ob; c.fillRect(o.x + o.w * .28, o.y, o.w * .44, o.h); c.fillStyle = "#ffffff33"; c.fillRect(o.x + o.w * .28, o.y, o.w * .1, o.h); }
+function obNeon(c, o) { c.shadowColor = o.ob; c.shadowBlur = 14; c.fillStyle = o.ob; c.fillRect(o.x + o.w * .3, o.y, o.w * .4, o.h); c.shadowBlur = 0; c.fillStyle = "#ffffff99"; c.fillRect(o.x + o.w * .42, o.y, o.w * .08, o.h); }
+function obGumdrop(c, o) { c.fillStyle = o.ob; c.fillRect(o.x + o.w * .46, o.y + o.h * .42, o.w * .08, o.h * .58); c.beginPath(); c.arc(o.x + o.w * .5, o.y + o.h * .46, o.w * .33, Math.PI, 0); c.lineTo(o.x + o.w * .83, o.y + o.h * .46); c.lineTo(o.x + o.w * .17, o.y + o.h * .46); c.closePath(); c.fill(); c.fillStyle = "#ffffff66"; c.beginPath(); c.arc(o.x + o.w * .4, o.y + o.h * .32, o.w * .08, 0, 7); c.fill(); }
+function obStump(c, o) { c.fillStyle = o.ob; rrect(c, o.x + o.w * .26, o.y, o.w * .48, o.h, o.w * .1); c.fill(); c.fillStyle = o.line; rrect(c, o.x + o.w * .26, o.y, o.w * .48, o.h * .16, o.w * .08); c.fill(); c.strokeStyle = o.line; c.lineWidth = 2; c.beginPath(); c.arc(o.x + o.w * .5, o.y + o.h * .08, o.w * .08, 0, 7); c.stroke(); }
+function obMound(c, o) { const gy = CFG.groundY; c.fillStyle = o.ob; c.beginPath(); c.moveTo(o.x, gy); c.quadraticCurveTo(o.x + o.w / 2, o.y - o.h * .15, o.x + o.w, gy); c.fill(); c.fillStyle = "#ffffffaa"; c.beginPath(); c.moveTo(o.x + o.w * .2, gy); c.quadraticCurveTo(o.x + o.w / 2, o.y + o.h * .25, o.x + o.w * .8, gy); c.fill(); }
+function obPylon(c, o) { const gy = CFG.groundY; c.fillStyle = o.ob; c.beginPath(); c.moveTo(o.x + o.w * .5, o.y); c.lineTo(o.x + o.w * .82, gy); c.lineTo(o.x + o.w * .18, gy); c.closePath(); c.fill(); c.fillStyle = o.line; c.fillRect(o.x + o.w * .3, o.y + o.h * .45, o.w * .4, o.h * .12); }
+function obCrystal(c, o) { c.fillStyle = o.ob; c.beginPath(); c.moveTo(o.x + o.w * .5, o.y); c.lineTo(o.x + o.w * .72, o.y + o.h * .42); c.lineTo(o.x + o.w * .6, o.y + o.h); c.lineTo(o.x + o.w * .4, o.y + o.h); c.lineTo(o.x + o.w * .28, o.y + o.h * .42); c.closePath(); c.fill(); c.fillStyle = "#ffffff77"; c.beginPath(); c.moveTo(o.x + o.w * .5, o.y); c.lineTo(o.x + o.w * .5, o.y + o.h); c.lineTo(o.x + o.w * .4, o.y + o.h); c.lineTo(o.x + o.w * .28, o.y + o.h * .42); c.closePath(); c.fill(); }
+function obRock(c, o) { c.fillStyle = o.ob; c.beginPath(); c.moveTo(o.x + o.w * .15, o.y + o.h); c.lineTo(o.x + o.w * .22, o.y + o.h * .4); c.lineTo(o.x + o.w * .5, o.y + o.h * .12); c.lineTo(o.x + o.w * .78, o.y + o.h * .42); c.lineTo(o.x + o.w * .86, o.y + o.h); c.closePath(); c.fill(); c.fillStyle = "#ffffff33"; c.beginPath(); c.moveTo(o.x + o.w * .5, o.y + o.h * .12); c.lineTo(o.x + o.w * .62, o.y + o.h * .5); c.lineTo(o.x + o.w * .5, o.y + o.h * .55); c.closePath(); c.fill(); }
+function obBarrel(c, o) { c.fillStyle = o.ob; rrect(c, o.x + o.w * .28, o.y, o.w * .44, o.h, o.w * .08); c.fill(); c.strokeStyle = o.line; c.lineWidth = 3; [.2, .5, .8].forEach(f => { c.beginPath(); c.moveTo(o.x + o.w * .28, o.y + o.h * f); c.lineTo(o.x + o.w * .72, o.y + o.h * f); c.stroke(); }); }
+function obSpike(c, o) { c.fillStyle = o.ob; const n = 3, bw = o.w * .5 / n; for (let i = 0; i < n; i++) { const x = o.x + o.w * .25 + i * bw; c.beginPath(); c.moveTo(x, o.y + o.h); c.lineTo(x + bw / 2, o.y); c.lineTo(x + bw, o.y + o.h); c.closePath(); c.fill(); } }
+function obGear(c, o) { const cx = o.x + o.w * .5, cy = o.y + o.h * .5, r = Math.min(o.w, o.h) * .42; c.fillStyle = o.ob; for (let i = 0; i < 8; i++) { const a = i / 8 * 6.283; c.save(); c.translate(cx + Math.cos(a) * r, cy + Math.sin(a) * r); c.rotate(a); c.fillRect(-3, -3, 8, 6); c.restore(); } c.beginPath(); c.arc(cx, cy, r, 0, 7); c.fill(); c.fillStyle = o.line; c.beginPath(); c.arc(cx, cy, r * .4, 0, 7); c.fill(); }
+function obMushroom(c, o) { c.fillStyle = "#f5ead8"; c.fillRect(o.x + o.w * .42, o.y + o.h * .4, o.w * .16, o.h * .6); c.fillStyle = o.ob; c.beginPath(); c.ellipse(o.x + o.w * .5, o.y + o.h * .42, o.w * .34, o.h * .4, 0, Math.PI, 0); c.fill(); c.fillStyle = "#ffffffaa"; [.34, .5, .66].forEach(f => { c.beginPath(); c.arc(o.x + o.w * f, o.y + o.h * .3, o.w * .045, 0, 7); c.fill(); }); }
+function obTotem(c, o) { c.fillStyle = o.ob; rrect(c, o.x + o.w * .3, o.y, o.w * .4, o.h, o.w * .06); c.fill(); c.fillStyle = o.line; c.lineWidth = 2; c.strokeStyle = o.line; for (let k = 0; k < 3; k++) { const yy = o.y + o.h * (.2 + k * .28); c.beginPath(); c.arc(o.x + o.w * .5, yy, o.w * .08, 0, 7); c.stroke(); } c.fillStyle = o.accent; c.beginPath(); c.moveTo(o.x + o.w * .3, o.y); c.lineTo(o.x + o.w * .5, o.y - o.h * .12); c.lineTo(o.x + o.w * .7, o.y); c.fill(); }
+function obIce(c, o) { c.fillStyle = o.ob; c.globalAlpha *= .9; c.beginPath(); c.moveTo(o.x + o.w * .3, o.y + o.h); c.lineTo(o.x + o.w * .4, o.y + o.h * .2); c.lineTo(o.x + o.w * .5, o.y); c.lineTo(o.x + o.w * .62, o.y + o.h * .3); c.lineTo(o.x + o.w * .72, o.y + o.h); c.closePath(); c.fill(); c.globalAlpha /= .9; c.fillStyle = "#ffffff88"; c.fillRect(o.x + o.w * .47, o.y + o.h * .1, o.w * .04, o.h * .8); }
+function obCoral(c, o) { c.fillStyle = o.ob; c.lineWidth = o.w * .12; c.strokeStyle = o.ob; c.lineCap = "round"; const bx = o.x + o.w * .5, by = o.y + o.h; c.beginPath(); c.moveTo(bx, by); c.lineTo(bx, o.y + o.h * .3); c.stroke(); [[-1, .5], [1, .35], [-1, .15]].forEach(b => { c.beginPath(); c.moveTo(bx, o.y + o.h * (b[1] + .15)); c.quadraticCurveTo(bx + b[0] * o.w * .22, o.y + o.h * b[1], bx + b[0] * o.w * .26, o.y + o.h * (b[1] - .2)); c.stroke(); }); }
+function obBone(c, o) { c.fillStyle = o.ob; c.fillRect(o.x + o.w * .44, o.y + o.h * .1, o.w * .12, o.h * .9); c.beginPath(); c.arc(o.x + o.w * .4, o.y + o.h * .12, o.w * .1, 0, 7); c.arc(o.x + o.w * .6, o.y + o.h * .12, o.w * .1, 0, 7); c.fill(); c.beginPath(); c.arc(o.x + o.w * .4, o.y + o.h, o.w * .1, 0, 7); c.arc(o.x + o.w * .6, o.y + o.h, o.w * .1, 0, 7); c.fill(); }
+function obBush(c, o) { c.fillStyle = o.ob; [[.3, .55, .3], [.5, .42, .42], [.7, .55, .3]].forEach(b => { c.beginPath(); c.arc(o.x + o.w * b[0], o.y + o.h * b[1], o.w * b[2], 0, 7); c.fill(); }); c.fillStyle = o.accent; [[.4, .55], [.62, .6]].forEach(d => { c.beginPath(); c.arc(o.x + o.w * d[0], o.y + o.h * d[1], o.w * .05, 0, 7); c.fill(); }); }
+function obLantern(c, o) { c.strokeStyle = o.line; c.lineWidth = 3; c.beginPath(); c.moveTo(o.x + o.w * .5, o.y); c.lineTo(o.x + o.w * .5, o.y + o.h * .2); c.stroke(); c.fillStyle = o.ob; rrect(c, o.x + o.w * .3, o.y + o.h * .2, o.w * .4, o.h * .7, o.w * .1); c.fill(); c.fillStyle = o.accent; rrect(c, o.x + o.w * .38, o.y + o.h * .3, o.w * .24, o.h * .5, o.w * .06); c.fill(); }
+function obSlab(c, o) { c.fillStyle = o.ob; rrect(c, o.x + o.w * .2, o.y, o.w * .6, o.h, o.w * .05); c.fill(); c.fillStyle = "#ffffff22"; c.fillRect(o.x + o.w * .2, o.y, o.w * .6, o.h * .12); c.strokeStyle = o.line; c.lineWidth = 2; c.strokeRect(o.x + o.w * .2, o.y, o.w * .6, o.h); }
+function obFence(c, o) { c.fillStyle = o.ob; const n = 3, bw = o.w * .6 / n; for (let i = 0; i < n; i++) { const x = o.x + o.w * .2 + i * bw; c.beginPath(); c.moveTo(x, o.y + o.h); c.lineTo(x, o.y + o.h * .1); c.lineTo(x + bw * .5, o.y); c.lineTo(x + bw * .7, o.y + o.h * .1); c.lineTo(x + bw * .7, o.y + o.h); c.closePath(); c.fill(); } c.fillStyle = o.line; c.fillRect(o.x + o.w * .2, o.y + o.h * .4, o.w * .6, o.h * .1); }
+function obShard(c, o) { c.fillStyle = o.ob; [[.3, .8, .55], [.5, 1, 0], [.68, .7, .55]].forEach(s => { c.beginPath(); c.moveTo(o.x + o.w * (s[0] - .08), o.y + o.h); c.lineTo(o.x + o.w * s[0], o.y + o.h * (1 - s[1])); c.lineTo(o.x + o.w * (s[0] + .08), o.y + o.h); c.closePath(); c.fill(); }); }
+function obDrum(c, o) { c.fillStyle = o.ob; rrect(c, o.x + o.w * .26, o.y, o.w * .48, o.h, o.w * .06); c.fill(); c.fillStyle = o.line; c.fillRect(o.x + o.w * .26, o.y + o.h * .3, o.w * .48, o.h * .1); c.fillStyle = o.accent; c.beginPath(); c.moveTo(o.x + o.w * .26, o.y); c.lineTo(o.x + o.w * .74, o.y + o.h * .12); c.lineTo(o.x + o.w * .74, o.y); c.fill(); }
+function obHive(c, o) { c.fillStyle = o.ob; for (let r = 0; r < 3; r++) { const ww = o.w * (.5 - r * .08), yy = o.y + o.h * (.12 + r * .3); rrect(c, o.x + o.w * .5 - ww / 2, yy, ww, o.h * .26, o.h * .12); c.fill(); } c.fillStyle = o.line; c.beginPath(); c.arc(o.x + o.w * .5, o.y + o.h * .72, o.w * .06, 0, 7); c.fill(); }
+function obBrick(c, o) { c.fillStyle = o.ob; rrect(c, o.x + o.w * .24, o.y, o.w * .52, o.h, 3); c.fill(); c.strokeStyle = o.line; c.lineWidth = 2; for (let r = 0; r < 3; r++) { const yy = o.y + o.h * (r + 1) / 3; c.beginPath(); c.moveTo(o.x + o.w * .24, yy); c.lineTo(o.x + o.w * .76, yy); c.stroke(); c.beginPath(); c.moveTo(o.x + o.w * (r % 2 ? .5 : .38), o.y + o.h * r / 3); c.lineTo(o.x + o.w * (r % 2 ? .5 : .38), yy); c.stroke(); } }
+function obPillar(c, o) { c.fillStyle = o.ob; c.fillRect(o.x + o.w * .32, o.y + o.h * .1, o.w * .36, o.h * .82); c.fillStyle = o.line; c.fillRect(o.x + o.w * .26, o.y, o.w * .48, o.h * .12); c.fillRect(o.x + o.w * .26, o.y + o.h * .88, o.w * .48, o.h * .12); c.fillStyle = "#ffffff22"; c.fillRect(o.x + o.w * .38, o.y + o.h * .1, o.w * .05, o.h * .82); }
+function obSprout(c, o) { c.strokeStyle = o.ob; c.lineWidth = o.w * .1; c.lineCap = "round"; c.beginPath(); c.moveTo(o.x + o.w * .5, o.y + o.h); c.lineTo(o.x + o.w * .5, o.y + o.h * .3); c.stroke(); c.fillStyle = o.accent; [[-1, .4], [1, .25]].forEach(l => { c.beginPath(); c.ellipse(o.x + o.w * .5 + l[0] * o.w * .16, o.y + o.h * l[1], o.w * .16, o.h * .12, l[0] * .6, 0, 7); c.fill(); }); }
+function obAnvil(c, o) { c.fillStyle = o.ob; rrect(c, o.x + o.w * .2, o.y, o.w * .6, o.h * .34, 4); c.fill(); c.fillRect(o.x + o.w * .42, o.y + o.h * .34, o.w * .16, o.h * .3); rrect(c, o.x + o.w * .3, o.y + o.h * .64, o.w * .4, o.h * .36, 4); c.fill(); c.fillStyle = "#ffffff33"; c.fillRect(o.x + o.w * .2, o.y, o.w * .6, o.h * .08); }
+function obBuoy(c, o) { c.fillStyle = o.ob; c.beginPath(); c.moveTo(o.x + o.w * .3, o.y + o.h); c.lineTo(o.x + o.w * .38, o.y + o.h * .3); c.lineTo(o.x + o.w * .62, o.y + o.h * .3); c.lineTo(o.x + o.w * .7, o.y + o.h); c.closePath(); c.fill(); c.fillStyle = o.accent; c.fillRect(o.x + o.w * .34, o.y + o.h * .5, o.w * .32, o.h * .14); c.fillStyle = o.line; rrect(c, o.x + o.w * .4, o.y, o.w * .2, o.h * .32, o.w * .08); c.fill(); }
+function obTooth(c, o) { c.fillStyle = o.ob; c.beginPath(); c.moveTo(o.x + o.w * .28, o.y); c.lineTo(o.x + o.w * .72, o.y); c.lineTo(o.x + o.w * .6, o.y + o.h); c.quadraticCurveTo(o.x + o.w * .5, o.y + o.h * .8, o.x + o.w * .4, o.y + o.h); c.closePath(); c.fill(); c.fillStyle = "#ffffff55"; c.fillRect(o.x + o.w * .34, o.y + o.h * .1, o.w * .06, o.h * .7); }
+function obVine(c, o) { c.strokeStyle = o.ob; c.lineWidth = o.w * .14; c.lineCap = "round"; c.beginPath(); c.moveTo(o.x + o.w * .5, o.y + o.h); for (let y = 1; y >= 0; y -= 0.12) c.lineTo(o.x + o.w * (.5 + Math.sin(y * 9) * .18), o.y + o.h * y); c.stroke(); c.fillStyle = o.accent; for (let k = 0; k < 3; k++) { const y = .3 + k * .25; c.beginPath(); c.ellipse(o.x + o.w * (.5 + Math.sin(y * 9) * .18), o.y + o.h * y, o.w * .12, o.h * .07, .5, 0, 7); c.fill(); } }
+
+const OB = { block: obBlock, neon: obNeon, gumdrop: obGumdrop, stump: obStump, mound: obMound, pylon: obPylon,
+  crystal: obCrystal, rock: obRock, barrel: obBarrel, spike: obSpike, gear: obGear, mushroom: obMushroom,
+  totem: obTotem, ice: obIce, coral: obCoral, bone: obBone, bush: obBush, lantern: obLantern, slab: obSlab,
+  fence: obFence, shard: obShard, drum: obDrum, hive: obHive, brick: obBrick, pillar: obPillar, sprout: obSprout,
+  anvil: obAnvil, buoy: obBuoy, tooth: obTooth, vine: obVine };
+
+/* ----- 8c. FLYER styles — low gliders, jump over them ----- */
+function flyBird(c, o) { const flap = Math.sin(o.ph) * 0.5 + 0.5, cy = o.y + o.h * .5; c.fillStyle = o.fly; c.beginPath(); c.ellipse(o.x + o.w * .5, cy, o.w * .28, o.h * .34, 0, 0, 7); c.fill(); c.beginPath(); c.moveTo(o.x + o.w * .55, cy); c.lineTo(o.x + o.w, cy - o.h * (.2 + flap * .5)); c.lineTo(o.x + o.w * .6, cy + o.h * .1); c.closePath(); c.fill(); c.beginPath(); c.moveTo(o.x + o.w * .45, cy); c.lineTo(o.x, cy - o.h * (.2 + (1 - flap) * .5)); c.lineTo(o.x + o.w * .4, cy + o.h * .1); c.closePath(); c.fill(); }
+function flyBat(c, o) { const flap = Math.sin(o.ph) * 0.5 + 0.5, cy = o.y + o.h * .5; c.fillStyle = o.fly; c.beginPath(); c.arc(o.x + o.w * .5, cy, o.h * .3, 0, 7); c.fill(); [[-1], [1]].forEach(s => { c.beginPath(); c.moveTo(o.x + o.w * .5, cy); c.quadraticCurveTo(o.x + o.w * (.5 + s[0] * .3), cy - o.h * (.3 + flap * .3), o.x + o.w * (.5 + s[0] * .5), cy - o.h * .1); c.quadraticCurveTo(o.x + o.w * (.5 + s[0] * .42), cy + o.h * .1, o.x + o.w * (.5 + s[0] * .3), cy + o.h * .12); c.closePath(); c.fill(); }); }
+function flyDrone(c, o) { const cy = o.y + o.h * .5; c.fillStyle = o.fly; rrect(c, o.x + o.w * .34, cy - o.h * .14, o.w * .32, o.h * .28, o.h * .1); c.fill(); c.strokeStyle = o.fly; c.lineWidth = 3; c.beginPath(); c.moveTo(o.x + o.w * .1, cy - o.h * .2); c.lineTo(o.x + o.w * .9, cy - o.h * .2); c.stroke(); const sp = o.ph * 3; [.16, .84].forEach(f => { c.fillStyle = "#ffffff66"; c.beginPath(); c.ellipse(o.x + o.w * f, cy - o.h * .2, o.w * .12 * (Math.abs(Math.cos(sp)) + .3), 2, 0, 0, 7); c.fill(); }); c.fillStyle = o.accent || "#fff"; c.beginPath(); c.arc(o.x + o.w * .5, cy + o.h * .1, 2.4, 0, 7); c.fill(); }
+function flyJelly(c, o) { const cy = o.y + o.h * .4, pulse = Math.sin(o.ph) * 0.12 + 1; c.fillStyle = o.fly; c.globalAlpha *= .85; c.beginPath(); c.ellipse(o.x + o.w * .5, cy, o.w * .3 * pulse, o.h * .34, 0, Math.PI, 0); c.fill(); c.fillRect(o.x + o.w * .2, cy, o.w * .6 * pulse, 2); c.globalAlpha /= .85; c.strokeStyle = o.fly; c.lineWidth = 2; for (let i = 0; i < 4; i++) { const x = o.x + o.w * (.32 + i * .12); c.beginPath(); c.moveTo(x, cy); c.quadraticCurveTo(x + Math.sin(o.ph + i) * 4, cy + o.h * .4, x, cy + o.h * .6); c.stroke(); } }
+function flyLeaf(c, o) { const cy = o.y + o.h * .5, sw = Math.sin(o.ph) * .4; c.save(); c.translate(o.x + o.w * .5, cy); c.rotate(sw); c.fillStyle = o.fly; c.beginPath(); c.ellipse(0, 0, o.w * .34, o.h * .22, 0, 0, 7); c.fill(); c.strokeStyle = o.line || "#0008"; c.lineWidth = 1.5; c.beginPath(); c.moveTo(-o.w * .3, 0); c.lineTo(o.w * .3, 0); c.stroke(); c.restore(); }
+function flyGhost(c, o) { const cy = o.y + o.h * .5; c.fillStyle = o.fly; c.globalAlpha *= .85; c.beginPath(); c.arc(o.x + o.w * .5, cy, o.h * .34, Math.PI, 0); const bot = cy + o.h * .34; c.lineTo(o.x + o.w * .5 + o.h * .34, bot); for (let i = 0; i < 4; i++) { const x = o.x + o.w * .5 + o.h * .34 - (i + 0.5) * (o.h * .68 / 4); c.lineTo(x, bot + (i % 2 ? -o.h * .12 : o.h * .06)); } c.closePath(); c.fill(); c.globalAlpha /= .85; c.fillStyle = "#0e1326"; c.beginPath(); c.arc(o.x + o.w * .42, cy, 2.6, 0, 7); c.arc(o.x + o.w * .58, cy, 2.6, 0, 7); c.fill(); }
+
+const FLY = { bird: flyBird, bat: flyBat, drone: flyDrone, jelly: flyJelly, leaf: flyLeaf, ghost: flyGhost };
+function drawObstacle(c, o) {
+  c.save();
+  try {
+    if (o.kind === "fly") { c.shadowColor = "rgba(0,0,0,.35)"; c.shadowBlur = 4; (FLY[o.style] || flyBird)(c, o); }  // soft outline for contrast vs same-hue skies
+    else (OB[o.style] || obBlock)(c, o);
+  } catch (e) { c.fillStyle = o.ob || "#888"; c.fillRect(o.x + o.w * .3, o.y, o.w * .4, o.h); }
+  c.restore();
+}
+
+/* ---- 9. GAME ------------------------------------------------------------ */
+const CFG = {
+  GW: 960, GH: 300, groundY: 250, runnerX: 130, S: 64,
+  gravity: 2600, jumpV: -980, jumpCut: 0.42, coyote: 0.09, buffer: 0.13,
+  speed0: 340, speedMax: 780, speedRamp: 0.52,
+  coinEvery: 90, flyAfter: 220,
+  stageLen: 240, stageFade: 2.0
+};
+const cv = document.getElementById("game"), ctx = cv.getContext("2d");
+let DPR = 1, scale = 1;
+
+function resize() {
+  const r = cv.getBoundingClientRect();
+  DPR = Math.min(window.devicePixelRatio || 1, 2.5);
+  cv.width = Math.max(1, Math.round(r.width * DPR));
+  cv.height = Math.max(1, Math.round(r.height * DPR));
+  scale = cv.width / CFG.GW;
+}
+
+const G = {
+  mode: "attract", py: CFG.groundY, vy: 0, onGround: true,
+  phase: 0, clock: 0, dist: 0, score: 0, speed: CFG.speed0,
+  obstacles: [], coins: [], spawnIn: 0, coinAcc: 0, runCoins: 0,
+  holdJump: false, coyoteT: 0, jumpBuf: 0,
+  stageIdx: 0, stageA: THEMES[0].id, stageB: THEMES[0].id, blend: 0, transitioning: false, stageNext: 0,
+  maxStage: 0
+};
+
+function applyStartWorld() {
+  G.stageIdx = themeIndex(save.theme);
+  G.stageA = save.theme; G.stageB = save.theme; G.blend = 0; G.transitioning = false;
+  G.stageNext = CFG.stageLen; G.maxStage = G.stageIdx;
+}
+function reset() {
+  G.py = CFG.groundY; G.vy = 0; G.onGround = true;
+  G.phase = 0; G.dist = 0; G.score = 0; G.speed = CFG.speed0;
+  G.obstacles = []; G.coins = []; G.spawnIn = 0.6; G.coinAcc = 0; G.runCoins = 0;
+  G.holdJump = false; G.coyoteT = 0; G.jumpBuf = 0;
+  applyStartWorld();
+}
+
+function doJump(buffered) {
+  // a buffered jump has no held button, so it must NOT be cut by a later release
+  G.vy = CFG.jumpV; G.onGround = false; G.coyoteT = 0; G.holdJump = !buffered; G.jumpBuf = 0;
+  Sfx.jump();
+}
+function jump() {
+  Sfx.resume();
+  if (G.mode === "attract") { startRun(); return; }
+  if (G.mode !== "playing") return;
+  if (G.onGround || G.coyoteT > 0) doJump(false);
+  else G.jumpBuf = CFG.buffer;            // buffer a jump for the moment we land
+}
+function jumpRelease() { if (G.holdJump && G.vy < 0) G.vy *= CFG.jumpCut; G.holdJump = false; }
+
+function activeTheme() { return themeById(G.blend < 0.5 ? G.stageA : G.stageB); }
+
+function spawn() {
+  const at = activeTheme();
+  const useFly = G.score > CFG.flyAfter && Math.random() < 0.34;
+  if (useFly) {
+    const h = 0.30 * CFG.S, w = 0.6 * CFG.S;
+    const bottom = CFG.groundY - 0.04 * CFG.S;      // low band: must hop, always clearable
+    G.obstacles.push({ kind: "fly", x: CFG.GW + 40, y: bottom - h, w, h, ph: 0,
+      style: at.flyStyle, fly: at.fly, line: at.line, accent: at.accent });
+  } else {
+    const cluster = Math.random() < 0.22 ? 2 : Math.random() < 0.09 ? 3 : 1;
+    const unit = 0.24 * CFG.S, h = (0.5 + Math.random() * 0.42) * CFG.S;
+    const w = unit * cluster + 0.12 * CFG.S;
+    G.obstacles.push({ kind: "ground", x: CFG.GW + 40, y: CFG.groundY - h, w, h,
+      style: at.obStyle, ob: at.ob, line: at.line, accent: at.accent });
+  }
+  if (Math.random() < 0.55) {
+    const cy = CFG.groundY - (0.5 + Math.random() * 0.9) * CFG.S;
+    const n = 1 + (Math.random() < 0.4 ? 1 : 0) + (Math.random() < 0.2 ? 1 : 0);
+    for (let i = 0; i < n; i++) G.coins.push({ x: CFG.GW + 160 + i * 30, y: cy - i * 8, r: 8, got: false });
+  }
+  const gap = (0.95 + Math.random() * 0.5) * (G.speed / CFG.speed0 * 0.7 + 0.3);
+  G.spawnIn = (230 + Math.random() * 150) / G.speed * gap;
+}
+
+function hitbox() {
+  const w = 0.52 * CFG.S, h = 0.92 * CFG.S, inset = 0.12;
+  return { x: CFG.runnerX - w / 2 + w * inset, y: G.py - h + h * inset,
+           w: w * (1 - inset * 2), h: h * (1 - inset * 2) };
+}
+const overlap = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
+function update(dt) {
+  G.clock += dt;
+  if (G.mode === "attract") { G.phase += dt * 9; G.dist += 120 * dt; return; }
+  if (G.mode !== "playing") return;
+
+  G.speed = Math.min(CFG.speedMax, CFG.speed0 + G.score * CFG.speedRamp);
+  G.dist += G.speed * dt; G.score = Math.floor(G.dist / 10);
+  G.phase += dt * (8 + G.speed / 90);
+
+  // ---- journey: cross-fade forward through the 100 worlds ----
+  if (!G.transitioning && G.score >= G.stageNext && G.stageIdx < THEMES.length - 1) {
+    G.stageB = THEMES[G.stageIdx + 1].id; G.transitioning = true; G.blend = 0; Sfx.stage();
+  }
+  if (G.transitioning) {
+    G.blend += dt / CFG.stageFade;
+    if (G.blend >= 1) {
+      G.blend = 0; G.transitioning = false; G.stageIdx++; G.stageA = G.stageB;
+      G.stageNext += CFG.stageLen; if (G.stageIdx > G.maxStage) G.maxStage = G.stageIdx;
+      unlockWorld(THEMES[G.stageIdx].id);
+    }
+  }
+
+  // physics (jump only)
+  G.vy += CFG.gravity * dt; G.py += G.vy * dt;
+  if (G.coyoteT > 0) G.coyoteT -= dt;
+  if (G.jumpBuf > 0) G.jumpBuf -= dt;
+  if (G.py >= CFG.groundY) {
+    G.py = CFG.groundY; G.vy = 0;
+    if (!G.onGround) { G.onGround = true; G.coyoteT = CFG.coyote; if (G.jumpBuf > 0) doJump(true); }
+  } else G.onGround = false;
+
+  G.spawnIn -= dt; if (G.spawnIn <= 0) spawn();
+  for (const o of G.obstacles) { o.x -= G.speed * dt; if (o.kind === "fly") o.ph += dt * 14; }
+  G.obstacles = G.obstacles.filter(o => o.x + o.w > -20);
+
+  G.coinAcc += G.speed * dt;
+  if (G.coinAcc >= CFG.coinEvery) { G.coinAcc -= CFG.coinEvery; G.runCoins++; }
+  for (const c of G.coins) c.x -= G.speed * dt;
+  G.coins = G.coins.filter(c => c.x > -20 && !c.got);
+  const hb = hitbox();
+  for (const c of G.coins) {
+    if (!c.got && hb.x < c.x + c.r && hb.x + hb.w > c.x - c.r && hb.y < c.y + c.r && hb.y + hb.h > c.y - c.r) {
+      c.got = true; G.runCoins++; Sfx.coin();
+    }
+  }
+  for (const o of G.obstacles) if (overlap(hb, o)) return gameOver();
+}
+
+/* ---------- render ---------- */
+function lerpC(a, b, t) {
+  const pa = a.match(/[\da-f]{2}/gi).map(h => parseInt(h, 16));
+  const pb = b.match(/[\da-f]{2}/gi).map(h => parseInt(h, 16));
+  return "#" + pa.map((v, i) => Math.round(v + (pb[i] - v) * t).toString(16).padStart(2, "0")).join("");
+}
+function render() {
+  const A = themeById(G.stageA), B = themeById(G.stageB), bl = G.blend;
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  ctx.clearRect(0, 0, CFG.GW, CFG.GH);
+  const sky0 = lerpC(A.sky0, B.sky0, bl), sky1 = lerpC(A.sky1, B.sky1, bl);
+  const lineC = lerpC(A.line, B.line, bl), groundC = lerpC(A.ground, B.ground, bl);
+  const g = ctx.createLinearGradient(0, 0, 0, CFG.groundY);
+  g.addColorStop(0, sky0); g.addColorStop(1, sky1);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, CFG.GW, CFG.GH);
+  // sun / moon
+  const starAlpha = (A.star ? 1 - bl : 0) + (B.star ? bl : 0);
+  ctx.globalAlpha = 0.85; ctx.fillStyle = starAlpha > 0.5 ? "#f3f1ff" : "#fff4cf";
+  ctx.beginPath(); ctx.arc(CFG.GW - 150, 70, 30, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+  if (starAlpha > 0.01) { ctx.fillStyle = "#ffffff"; ctx.globalAlpha = starAlpha * 0.8; for (let i = 0; i < 30; i++) { const x = (i * 137) % CFG.GW, y = (i * 71) % (CFG.groundY - 40); ctx.fillRect(x, y, 2, 2); } ctx.globalAlpha = 1; }
+  // parallax crossfade
+  drawParallax(ctx, A, 1 - bl); drawParallax(ctx, B, bl);
+  // ground
+  ctx.fillStyle = groundC; ctx.fillRect(0, CFG.groundY, CFG.GW, CFG.GH - CFG.groundY);
+  ctx.strokeStyle = lineC; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0, CFG.groundY); ctx.lineTo(CFG.GW, CFG.groundY); ctx.stroke();
+  const tick = G.dist % 40; ctx.fillStyle = lineC; for (let x = -tick; x < CFG.GW; x += 40) ctx.fillRect(x, CFG.groundY + 12, 14, 3);
+  // coins
+  for (const c of G.coins) { if (c.got) continue; ctx.fillStyle = "#ffce4a"; ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, 7); ctx.fill(); ctx.fillStyle = "#b88600"; ctx.beginPath(); ctx.arc(c.x - 2, c.y - 2, c.r * 0.5, 0, 7); ctx.fill(); }
+  // obstacles
+  for (const o of G.obstacles) drawObstacle(ctx, o);
+  // runner
+  const tr = Skins.traits(save.equipped);
+  const pose = (G.mode === "attract" || G.onGround) ? "run" : "jump";
+  Skins.draw(ctx, tr, CFG.runnerX, G.py, CFG.S, pose, G.phase);
+}
+
+/* ---------- loop ---------- */
+let last = 0;
+function frame(ts) {
+  if (!last) last = ts;
+  let dt = (ts - last) / 1000; last = ts;
+  if (dt > 0.05) dt = 0.05;
+  update(dt); render();
+  const live = G.mode === "playing" || G.mode === "paused";
+  scoreNow.textContent = live ? G.score : "0";
+  stageLabel.textContent = live ? activeTheme().name : "Score";
+  coinCount.textContent = save.coins + (live ? G.runCoins : 0);
+  requestAnimationFrame(frame);
+}
+
+function startRun() {
+  reset(); G.mode = "playing"; document.body.classList.add("playing");
+  hide(titleScreen); hide(overScreen);
+  hint.style.display = "block"; setTimeout(() => hint.style.display = "none", 1400);
+  Bridge.emit("run-start", { world: save.theme });
+}
+function gameOver() {
+  Sfx.hit(); G.mode = "over"; document.body.classList.remove("playing");
+  Wallet.earn(G.runCoins, "run");                       // bank the run's coins (routes through the wallet seam)
+  const best = G.score > save.best; if (best) save.best = G.score;
+  unlockWorld(THEMES[G.maxStage].id);
+  save.reached = Math.max(save.reached || 0, G.maxStage);
+  persist();
+  $("ovScore").textContent = G.score; $("ovBest").textContent = save.best; $("ovCoins").textContent = "+" + G.runCoins;
+  $("ovWorld").textContent = "Reached " + THEMES[G.maxStage].name;
+  newBest.style.display = best ? "block" : "none";
+  show(overScreen);
+  Bridge.emit("game-over", { score: G.score, best: save.best, coins: save.coins, world: THEMES[G.maxStage].id });
+}
+
+/* ---- 10. UI ------------------------------------------------------------- */
+const $ = id => document.getElementById(id);
+const titleScreen=$("titleScreen"),overScreen=$("overScreen"),collScreen=$("collScreen"),
+      themeScreen=$("themeScreen"),hatchScreen=$("hatchScreen"),
+      hint=$("hint"),jumpBtn=$("jumpBtn"),
+      scoreNow=$("scoreNow"),coinCount=$("coinCount"),stageLabel=$("stageLabel"),newBest=$("newBest");
+function show(el){el.classList.add("show");} function hide(el){el.classList.remove("show");}
+function toMenu(){ G.mode="attract"; document.body.classList.remove("playing"); reset();
+  [overScreen,collScreen,themeScreen,hatchScreen].forEach(hide);
+  $("bestTitle").textContent=save.best; $("worldsTitle").textContent=save.themes.length;
+  renderFavBar(); show(titleScreen); }
+let toastT;
+function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),1600); }
+
+/* ----- collection (your owned critters; favourites pinned first) ----- */
+function thumb(canvas, seed) {
+  const c = canvas.getContext("2d"); const w = canvas.width = 144, h = canvas.height = 144;
+  c.clearRect(0, 0, w, h); c.setTransform(1, 0, 0, 1, 0, 0);
+  Skins.draw(c, Skins.traits(seed), w * 0.5, h * 0.86, 96, "run", 1.2);
+}
+function makeCell(seed) {
+  const tr = Skins.traits(seed);
+  const cell = document.createElement("div");
+  cell.className = "cell" + (seed === save.equipped ? " eq" : "");
+  const cvs = document.createElement("canvas"); cell.appendChild(cvs);
+  const tag = document.createElement("div"); tag.className = "tag"; tag.style.background = tr.rarColor; tag.textContent = tr.rarity[0]; cell.appendChild(tag);
+  const fav = document.createElement("button"); fav.className = "favbtn" + (isFav(seed) ? " on" : ""); fav.textContent = "★";
+  fav.onclick = e => { e.stopPropagation(); const on = toggleFav(seed); fav.classList.toggle("on", on); renderFavBar(); toast(on ? "★ " + charName(seed) : "Removed favourite"); };
+  cell.appendChild(fav);
+  const nm = document.createElement("div"); nm.className = "nm"; nm.textContent = charName(seed); cell.appendChild(nm);
+  cell.onclick = () => { save.equipped = seed; persist(); openCollection(); renderFavBar(); toast("Equipped " + charName(seed)); };
+  thumb(cvs, seed);
+  return cell;
+}
+function openCollection() {
+  const grid = $("collGrid"); grid.innerHTML = "";
+  $("collCount").textContent = save.owned.length;
+  const rank = seed => Skins.traits(seed).rarIdx;
+  const order = save.owned.slice().sort((a, b) => {
+    const fa = isFav(a) ? 1 : 0, fb = isFav(b) ? 1 : 0; if (fa !== fb) return fb - fa;
+    const ra = rank(a), rb = rank(b); if (ra !== rb) return rb - ra;
+    return save.owned.indexOf(b) - save.owned.indexOf(a);   // newest first
+  });
+  order.forEach(seed => grid.appendChild(makeCell(seed)));
+  show(collScreen);
+}
+/* favourites quick-bar on the title screen (up to 3, tap to equip) */
+function renderFavBar() {
+  const bar = $("favBar"); if (!bar) return; bar.innerHTML = "";
+  for (let i = 0; i < FAV_MAX; i++) {
+    const seed = save.favorites[i];
+    const slot = document.createElement("div");
+    slot.className = "favslot" + (seed ? "" : " empty") + (seed && seed === save.equipped ? " eq" : "");
+    if (seed) {
+      const cvs = document.createElement("canvas"); slot.appendChild(cvs);
+      slot.onclick = () => { save.equipped = seed; persist(); renderFavBar(); toast("Equipped " + charName(seed)); };
+      thumb(cvs, seed);
+    } else slot.textContent = "★";
+    bar.appendChild(slot);
+  }
+}
+
+/* ----- worlds map ----- */
+function previewWorld(canvas, th) {
+  const c = canvas.getContext("2d"); const w = canvas.width = 240, h = canvas.height = 128;
+  const gy = h * 0.72;
+  const g = c.createLinearGradient(0, 0, 0, gy); g.addColorStop(0, th.sky0); g.addColorStop(1, th.sky1);
+  c.fillStyle = g; c.fillRect(0, 0, w, h);
+  if (th.star) { c.fillStyle = "#ffffffaa"; for (let i = 0; i < 12; i++) c.fillRect((i * 53) % w, (i * 29) % gy, 2, 2); }
+  c.fillStyle = th.ground; c.fillRect(0, gy, w, h - gy);
+  c.fillStyle = th.line; c.fillRect(0, gy - 2, w, 3);
+  c.fillStyle = th.ob; c.fillRect(w * 0.6, gy - 26, 14, 26);
+  c.fillStyle = th.accent; c.fillRect(w * 0.3, 16, 10, 10);
+}
+function openThemes() {
+  const list = $("themeList"); list.innerHTML = "";
+  // group by region in THEMES order
+  const order = [], byRegion = {};
+  THEMES.forEach((th, idx) => { const r = th.region || "Worlds"; if (!byRegion[r]) { byRegion[r] = []; order.push(r); } byRegion[r].push({ th, idx }); });
+  order.forEach(region => {
+    const items = byRegion[region];
+    const ownedN = items.filter(it => save.themes.includes(it.th.id)).length;
+    const head = document.createElement("div"); head.className = "region-h";
+    head.innerHTML = `<b>${region}</b><span>${ownedN}/${items.length}</span>`;
+    list.appendChild(head);
+    const grid = document.createElement("div"); grid.className = "wgrid";
+    items.forEach(({ th, idx }) => {
+      const owned = save.themes.includes(th.id), start = save.theme === th.id, price = priceOf(idx);
+      const cell = document.createElement("div"); cell.className = "wcell" + (start ? " start" : "") + (owned ? "" : " lock");
+      const cvs = document.createElement("canvas"); cell.appendChild(cvs);
+      const wm = document.createElement("div"); wm.className = "wm";
+      wm.innerHTML = `<b>${th.name}</b><span>${start ? "Starting world" : owned ? "Unlocked · tap to start" : (price ? "Locked" : "Free · tap to start")}</span>`;
+      cell.appendChild(wm);
+      if (!owned && price) { const pl = document.createElement("div"); pl.className = "pl"; pl.innerHTML = `<span class="coin"></span>${price}`; cell.appendChild(pl); }
+      cell.onclick = () => {
+        if (owned || price === 0) {
+          if (!owned) unlockWorld(th.id);
+          save.theme = th.id; persist(); applyStartWorld(); openThemes(); toast("Start: " + th.name);
+        } else if (Wallet.spend(price, "world:" + th.id)) {
+          unlockWorld(th.id); save.theme = th.id; persist(); applyStartWorld(); openThemes(); toast(th.name + " unlocked");
+        } else toast("Need " + price + " coins");
+      };
+      grid.appendChild(cell); previewWorld(cvs, th);
+    });
+    list.appendChild(grid);
+  });
+  show(themeScreen);
+}
+
+/* ----- vault / roll ----- */
+const ROLL_COST = 100; let rolledSeed = null;
+const cap1 = s => String(s).charAt(0).toUpperCase() + String(s).slice(1);
+function thumbBig(canvas, seed, idle) {
+  const c = canvas.getContext("2d"); canvas.width = 200; canvas.height = 200; c.clearRect(0, 0, 200, 200);
+  c.globalAlpha = idle ? 0.25 : 1; Skins.draw(c, Skins.traits(seed), 100, 170, 150, "run", 1.0); c.globalAlpha = 1;
+}
+function refreshFavRolled() {
+  const b = $("favRolledBtn"); if (!b || !rolledSeed) return;
+  const on = isFav(rolledSeed); b.textContent = on ? "★ Favourited" : "☆ Add to Favourites"; b.classList.toggle("on", on);
+}
+function openHatch() {
+  rolledSeed = null; $("hatchRar").innerHTML = "";
+  $("equipRolledBtn").style.display = "none"; $("favRolledBtn").style.display = "none";
+  $("hatchLabel").innerHTML = "Spend coins to roll a brand-new skitterling.<br>Millions of possibilities — every one unique, named, and yours forever.";
+  thumbBig($("hatchCanvas"), save.equipped, true); show(hatchScreen);
+}
+function nextRollSeed() {
+  // ~7% chance to surface an unowned curated "signature" critter, for delight
+  const sig = ROSTER.filter(r => !save.owned.includes(r.name));
+  if (sig.length && Math.random() < 0.07) return sig[Math.floor(Math.random() * sig.length)].name;
+  // otherwise a fresh, never-before-seen procedural critter — no duplicates, ever
+  let seed, guard = 0;
+  do { seed = String(Math.floor(100000000000 + Math.random() * 899999999999)); } while (save.owned.includes(seed) && guard++ < 64);
+  return seed;
+}
+function roll() {
+  if (!Wallet.spend(ROLL_COST, "roll")) return toast("Need 100 coins");
+  const seed = nextRollSeed();
+  const tr = Skins.traits(seed); save.owned.push(seed); rolledSeed = seed; persist();
+  const c = $("hatchCanvas"); c.classList.remove("pop"); void c.offsetWidth; c.classList.add("pop");
+  thumbBig(c, seed, false); Sfx.coin();
+  $("hatchRar").innerHTML = `<div class="rar-pill" style="background:${tr.rarColor};color:#0e1326">${cap1(tr.material)} · ${tr.rarity}</div>`;
+  $("hatchLabel").innerHTML = `Say hello to <b>${charName(seed)}</b> — added to your collection.`;
+  $("equipRolledBtn").style.display = "block"; $("favRolledBtn").style.display = "block";
+  refreshFavRolled(); coinCount.textContent = save.coins;
+}
+
+/* wire up */
+$("playBtn").onclick = startRun;
+$("retryBtn").onclick = startRun;
+$("ovMenuBtn").onclick = toMenu;
+$("collectionBtn").onclick = openCollection;
+$("themesBtn").onclick = openThemes;
+$("hatchOpenBtn").onclick = openHatch;
+$("ovHatchBtn").onclick = () => { hide(overScreen); openHatch(); };
+$("rollBtn").onclick = roll;
+$("equipRolledBtn").onclick = () => { if (rolledSeed) { save.equipped = rolledSeed; persist(); renderFavBar(); toast("Equipped " + charName(rolledSeed)); } };
+$("favRolledBtn").onclick = () => { if (rolledSeed) { toggleFav(rolledSeed); refreshFavRolled(); renderFavBar(); } };
+document.querySelectorAll("[data-close]").forEach(b => b.onclick = () => {
+  [collScreen, themeScreen, hatchScreen].forEach(hide);
+  if (G.mode === "over") show(overScreen);
+  else { $("bestTitle").textContent = save.best; $("worldsTitle").textContent = save.themes.length; renderFavBar(); show(titleScreen); }
+});
+$("muteBtn").onclick = () => { save.muted = !save.muted; persist(); $("muteBtn").textContent = save.muted ? "🔇" : "🔊"; Sfx.resume(); };
+$("pauseBtn").onclick = () => {
+  if (G.mode === "playing") { G.mode = "paused"; $("pauseBtn").textContent = "▶"; }
+  else if (G.mode === "paused") { G.mode = "playing"; last = 0; $("pauseBtn").textContent = "❚❚"; }
+};
+$("muteBtn").textContent = save.muted ? "🔇" : "🔊";
+
+/* input: one big JUMP button (hold = higher), tap the play area, keyboard */
+jumpBtn.addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); jumpBtn.classList.add("on"); jump(); }, { passive: false });
+cv.addEventListener("pointerdown", e => { e.preventDefault(); jump(); }, { passive: false });
+window.addEventListener("pointerup", () => { jumpBtn.classList.remove("on"); jumpRelease(); });
+window.addEventListener("pointercancel", () => { jumpBtn.classList.remove("on"); jumpRelease(); });
+window.addEventListener("keydown", e => {
+  if (["Space", "ArrowUp", "KeyW"].includes(e.code)) { e.preventDefault(); if (e.repeat) return; jumpBtn.classList.add("on"); jump(); }
+});
+window.addEventListener("keyup", e => {
+  if (["Space", "ArrowUp", "KeyW"].includes(e.code)) { jumpBtn.classList.remove("on"); jumpRelease(); }
+});
+
+/* fit canvas (locks 960x300 aspect, portrait + landscape) */
+function fitCanvas() {
+  const stage = document.getElementById("stage");
+  const availW = stage.clientWidth, availH = stage.clientHeight;
+  let w = availW, h = w * CFG.GH / CFG.GW;
+  if (h > availH) { h = availH; w = h * CFG.GW / CFG.GH; }
+  cv.style.width = w + "px"; cv.style.height = h + "px"; resize();
+}
+window.addEventListener("resize", fitCanvas);
+window.addEventListener("orientationchange", () => setTimeout(fitCanvas, 150));
+if (window.visualViewport) window.visualViewport.addEventListener("resize", fitCanvas);
+
+/* fullscreen */
+function toggleFs() {
+  const d = document, el = d.documentElement;
+  if (!d.fullscreenElement && !d.webkitFullscreenElement) {
+    const p = (el.requestFullscreen || el.webkitRequestFullscreen || function(){}).call(el); if (p && p.catch) p.catch(() => {});
+  } else {
+    const p = (d.exitFullscreen || d.webkitExitFullscreen || function(){}).call(d); if (p && p.catch) p.catch(() => {});
+  }
+}
+$("fsBtn").onclick = () => { try { toggleFs(); } catch (e) {} };
+["fullscreenchange", "webkitfullscreenchange"].forEach(ev => document.addEventListener(ev, () => {
+  const fs = document.fullscreenElement || document.webkitFullscreenElement;
+  $("fsBtn").textContent = fs ? "⤡" : "⛶"; setTimeout(fitCanvas, 120);
+}));
+
+/* PWA service worker — only over http(s) */
+if ("serviceWorker" in navigator && location.protocol.indexOf("http") === 0) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+
+/* ---- 11. INTEGRATION — portal + economy seams (host-configurable) --------
+   Standalone default: FULLY LOCAL — no network, no parent frame. A host (the
+   Sky Wolf Studio portal, or the Lucid Winds game) wires in via ANY of:
+     • launch query params:  ?uid=PLAYER&embed=1&origin=HOST_ORIGIN&world=ID&return=URL&coins=N
+     • window.SKITTERLINGS.configure({ uid, parentOrigin, endpoints, returnUrl })
+     • postMessage commands (see Bridge.handle)
+   It emits lifecycle + economy events to window.parent when embedded.
+   It changes NO gameplay — it only routes identity, the coin wallet, and
+   lifecycle events. Every coin read/write goes through Wallet (ONE seam).      */
+const SK_CFG = {
+  embedded: !!(window.parent && window.parent !== window) || SK_LAUNCH.get("embed") === "1",
+  uid: SK_UID,
+  parentOrigin: SK_LAUNCH.get("origin") || "*",   // <<< SET to the host origin in production to lock postMessage
+  endpoints: null,        // { getBalance, addCoins, spendCoins } Cloud Function URLs; null = local-only wallet
+  token: SK_LAUNCH.get("token") || null,          // auth token forwarded to the economy endpoints (prefer configure() over URL)
+  returnUrl: SK_LAUNCH.get("return") || null
+};
+function coinHud() { coinCount.textContent = save.coins + ((G.mode === "playing" || G.mode === "paused") ? G.runCoins : 0); }
+
+/* Optional shared "sunbeam" economy. Local is the optimistic source of truth;
+   remote writes are fire-and-forget, reconciled on load via pullBalance(). */
+function authHeaders(extra) { const h = extra || {}; if (SK_CFG.token) h["Authorization"] = "Bearer " + SK_CFG.token; return h; }
+function newTxid() { return "sk_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8); }
+function syncRemote(op, amount, reason) {
+  const ep = SK_CFG.endpoints; if (!ep || !amount) return;
+  const url = op === "spend" ? ep.spendCoins : ep.addCoins; if (!url) return;
+  try {
+    fetch(url, { method: "POST", headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ uid: SK_CFG.uid, game: "skitterlings", op: op, amount: amount, reason: reason, txid: newTxid(), ts: Date.now() }) })
+      .then(r => (r && r.json) ? r.json() : null)
+      .then(d => { if (d && typeof d.balance === "number") Wallet.set(d.balance); })   // optional server-authoritative reconcile
+      .catch(() => {});
+  } catch (e) {}
+}
+function pullBalance() {
+  const ep = SK_CFG.endpoints; if (!ep || !ep.getBalance) return;
+  try {
+    fetch(ep.getBalance + (SK_CFG.uid ? ("?uid=" + encodeURIComponent(SK_CFG.uid)) : ""), { headers: authHeaders() })
+      .then(r => r.json())
+      .then(d => { if (d && typeof d.balance === "number") Wallet.set(d.balance); })
+      .catch(() => {});
+  } catch (e) {}
+}
+
+/* THE single economy seam — every coin change goes through here. */
+const Wallet = {
+  balance() { return save.coins; },
+  earn(n, reason) { n = n | 0; if (n) { save.coins += n; persist(); syncRemote("add", n, reason); Bridge.emit("coins", { balance: save.coins, delta: n, reason: reason }); } coinHud(); return save.coins; },
+  spend(n, reason) { n = n | 0; if (save.coins < n) return false; save.coins -= n; persist(); syncRemote("spend", n, reason); Bridge.emit("coins", { balance: save.coins, delta: -n, reason: reason }); coinHud(); return true; },
+  set(n) { save.coins = Math.max(0, n | 0); persist(); coinHud(); }
+};
+
+/* postMessage bridge to the host frame (no-op when standalone). */
+const Bridge = {
+  emit(type, data) {
+    if (!SK_CFG.embedded) return;
+    try { window.parent.postMessage({ source: "skitterlings", type: type, data: data || {} }, SK_CFG.parentOrigin); } catch (e) {}
+  },
+  handle(ev) {
+    if (SK_CFG.parentOrigin !== "*" && ev.origin !== SK_CFG.parentOrigin) return;   // origin lock
+    const m = ev.data; if (!m || m.target !== "skitterlings") return;
+    switch (m.type) {
+      case "configure":   window.SKITTERLINGS.configure(m.data || {}); break;
+      case "pause":       if (G.mode === "playing") G.mode = "paused"; break;
+      case "resume":      if (G.mode === "paused") { G.mode = "playing"; last = 0; } break;
+      case "mute":        save.muted = !!(m.data && m.data.muted); persist(); $("muteBtn").textContent = save.muted ? "🔇" : "🔊"; break;
+      case "grant-coins": Wallet.earn((m.data && m.data.amount) | 0, "host"); break;
+      case "to-menu":     toMenu(); break;
+    }
+  }
+};
+window.addEventListener("message", e => { try { Bridge.handle(e); } catch (err) {} });
+
+/* Public API a same-origin host (or a window reference) can call directly. */
+window.SKITTERLINGS = {
+  version: "1.0.0",
+  configure(cfg) {
+    if (!cfg) return SK_CFG;
+    if (cfg.parentOrigin) SK_CFG.parentOrigin = cfg.parentOrigin;
+    if (cfg.returnUrl) SK_CFG.returnUrl = cfg.returnUrl;
+    if (cfg.token) SK_CFG.token = cfg.token;
+    if ("embedded" in cfg) SK_CFG.embedded = !!cfg.embedded;
+    if (cfg.endpoints) { SK_CFG.endpoints = cfg.endpoints; pullBalance(); }
+    // NOTE: uid must come from the ?uid= launch param (it namespaces the save before load).
+    return SK_CFG;
+  },
+  get wallet() { return Wallet; },           // host.SKITTERLINGS.wallet.balance() / earn() / spend() / set()
+  emit(type, data) { Bridge.emit(type, data); },
+  goBack() { if (SK_CFG.returnUrl) { try { location.href = SK_CFG.returnUrl; } catch (e) {} } Bridge.emit("navigate-back", {}); }
+};
+
+function readLaunchParams() {
+  if (SK_LAUNCH.has("coins")) Wallet.earn(parseInt(SK_LAUNCH.get("coins"), 10) || 0, "launch");   // testing convenience
+  const w = SK_LAUNCH.get("world");
+  if (w && VALID.has(w)) { unlockWorld(w); save.theme = w; persist(); applyStartWorld(); }
+  if (SK_CFG.endpoints) pullBalance();
+}
+
+/* ---- DEV/TEST helpers (harmless in normal play) -------------------------
+   Console:  SK.addCoins(5000)  ·  SK.unlockAllWorlds()  ·  SK.rollMany(20)  ·  SK.wipe()
+   URL:      ?coins=5000   grants coins on load so you can test the economy.  */
+window.SK = {
+  get save() { return save; },
+  addCoins(n) { Wallet.earn(n | 0, "dev"); toast("+" + (n | 0) + " coins"); return save.coins; },
+  unlockAllWorlds() { THEMES.forEach(t => unlockWorld(t.id)); toast("All worlds unlocked"); if (themeScreen.classList.contains("show")) openThemes(); },
+  rollMany(n) { for (let i = 0; i < (n || 1); i++) { const s = nextRollSeed(); if (!save.owned.includes(s)) save.owned.push(s); } persist(); toast((n || 1) + " skitterlings added"); },
+  wipe() { save = Object.assign(defaultSave(), {}); persist(); toast("Save wiped — reload"); }
+};
+
+readLaunchParams(); fitCanvas(); toMenu(); requestAnimationFrame(frame);
+Bridge.emit("ready", { version: window.SKITTERLINGS.version });
+</script>
+</body>
+</html>
