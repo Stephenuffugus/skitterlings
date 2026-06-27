@@ -56,6 +56,9 @@
   @media (orientation:landscape){
     .ctrl{height:74px;width:min(60vw,420px);margin-top:2px}
   }
+  /* tap ANYWHERE (below the top HUD) to jump while playing */
+  #tapZone{position:absolute;left:0;right:0;top:54px;bottom:0;z-index:3;display:none;touch-action:none;cursor:pointer}
+  body.playing #tapZone{display:block}
   #hint{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);text-align:center;
     pointer-events:none;color:#ffffffe6;font-weight:800;font-size:15px;letter-spacing:1px;
     text-shadow:0 2px 14px #000a;display:none}
@@ -160,6 +163,7 @@
     <div id="hint">TAP / SPACE to JUMP<small>HOLD FOR A HIGHER HOP</small></div>
   </div>
   <button id="jumpBtn" class="ctrl">JUMP</button>
+  <div id="tapZone"></div>
 </div>
 
 <!-- Title -->
@@ -304,8 +308,10 @@ const Skins = (() => {
   const TAILS    = ["none", "stub", "long", "puff", "curl"];
   const PATTERNS = ["none", "spots", "stripe", "belly", "patch", "star"];
   const EYES     = ["dot", "round", "sleepy", "wide", "happy", "wink"];
-  const MOUTHS   = ["none", "none", "smile", "smile", "fang", "beak", "whiskers"];
+  const MOUTHS   = ["smile", "smile", "smile", "smile", "none", "whiskers", "fang", "beak"];
   const SCHEMES  = ["mono", "comp", "analog"];
+  // body archetype — the overall SILHOUETTE (so critters aren't one shape recoloured)
+  const ARCHES   = ["roundling", "tower", "chibi", "bean", "slug", "birdie", "teardrop", "quad", "floaty", "lump"];
   // finish/material — gated by rarity; multiplies perceived variety hugely
   const MATMOD = {
     matte:   { l: 57, ds: 0 },   pastel:  { l: 74, ds: -20 }, glossy: { l: 58, ds: 2, sheen: 1 },
@@ -328,14 +334,15 @@ const Skins = (() => {
     else hue2 = (hue + 8) % 360;
     const sat = 52 + Math.floor(rnd() * 22);
     const body = pick(BODIES);
+    const archetype = pick(ARCHES);
     const ear = pick(EARS);
     const tail = pick(TAILS);
     const pattern = pick(PATTERNS);
     const eyes = pick(EYES);
     const mouth = pick(MOUTHS);
     let acc = pick(["none", "none", "none", "scarf", "cap", "glasses", "bowtie", "flower"]);
-    if (rarIdx >= 2 && acc === "none") acc = pick(["none", "scarf", "cap", "headphones", "visor"]);
-    if (rarIdx >= 3) acc = pick(["glasses", "headphones", "visor", "cap", "flower"]);
+    if (rarIdx >= 2 && acc === "none") acc = pick(["none", "scarf", "cap", "headphones", "bowtie"]);
+    if (rarIdx >= 3) acc = pick(["glasses", "headphones", "cap", "flower", "bowtie"]);
     if (rarIdx >= 4) acc = "crown";
     // finish gated by rarity: commons are plain, top tiers are flashy
     const mr = rnd();
@@ -346,7 +353,7 @@ const Skins = (() => {
     else if (rarIdx >= 2) material = mr < 0.4 ? pick(["glossy", "frost", "ember"]) : pick(["matte", "pastel"]);
     else material = pick(["matte", "matte", "pastel", "glossy"]);
     const t = { seed, rarity: rar[0], rarColor: rar[2], rarIdx, hue, hue2, sat,
-                body, ear, tail, pattern, eyes, mouth, acc, material,
+                body, archetype, ear, tail, pattern, eyes, mouth, acc, material,
                 aura: rarIdx >= 3 ? rarIdx : 0, sparkle: rarIdx >= 4, glow: rarIdx >= 4 || material === "neon" };
     cache[seed] = t; return t;
   }
@@ -396,80 +403,120 @@ const Skins = (() => {
     const m = tr.mouth; if (m === "none") return;
     const mx = hx + headR * 0.18, my = hy + headR * 0.46;
     if (m === "smile") { c.strokeStyle = ink; c.lineWidth = .028 * S; c.lineCap = "round"; c.beginPath(); c.arc(mx, my - headR * .12, headR * .26, Math.PI * 0.18, Math.PI * 0.82); c.stroke(); }
-    else if (m === "fang") { c.strokeStyle = ink; c.lineWidth = .028 * S; c.beginPath(); c.moveTo(mx - headR * .16, my); c.lineTo(mx + headR * .16, my); c.stroke(); c.fillStyle = "#fff"; c.beginPath(); c.moveTo(mx - headR * .05, my); c.lineTo(mx - headR * .01, my + headR * .15); c.lineTo(mx + headR * .04, my); c.closePath(); c.fill(); }
+    else if (m === "fang") { c.strokeStyle = ink; c.lineWidth = .028 * S; c.lineCap = "round"; c.beginPath(); c.arc(mx, my - headR * .12, headR * .24, Math.PI * 0.2, Math.PI * 0.8); c.stroke(); c.fillStyle = "#fff"; c.beginPath(); c.moveTo(mx - headR * .07, my + headR * .02); c.lineTo(mx - headR * .03, my + headR * .17); c.lineTo(mx + headR * .02, my + headR * .02); c.closePath(); c.fill(); }
     else if (m === "beak") { c.fillStyle = "#ffb24a"; c.beginPath(); c.moveTo(mx - headR * .15, my - headR * .06); c.lineTo(mx + headR * .17, my); c.lineTo(mx - headR * .15, my + headR * .08); c.closePath(); c.fill(); }
     else if (m === "whiskers") { c.strokeStyle = ink; c.lineWidth = .016 * S; [[-1, -.03], [-1, .03], [1, -.03], [1, .03]].forEach(w => { c.beginPath(); c.moveTo(mx + w[0] * headR * .05, my + w[1] * S); c.lineTo(mx + w[0] * headR * .5, my + w[1] * S * 2.6); c.stroke(); }); c.fillStyle = ink; circle(c, mx, my, headR * .045); c.fill(); }
   }
 
+  // build a body silhouette PATH for an archetype shape
+  function pathBody(c, shape, x, y, w, h) {
+    const cx = x + w / 2, cy = y + h / 2; c.beginPath();
+    if (shape === "ball" || shape === "egg" || shape === "round") c.ellipse(cx, cy, w / 2, h / 2, 0, 0, 7);
+    else if (shape === "capsule") { const r = Math.min(w, h) / 2; c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
+    else if (shape === "teardrop") { c.moveTo(cx, y + h * 0.06); c.bezierCurveTo(x + w * 1.06, y + h * 0.22, x + w * 0.94, y + h * 0.9, cx, y + h); c.bezierCurveTo(x + w * 0.06, y + h * 0.9, x - w * 0.06, y + h * 0.22, cx, y + h * 0.06); }
+    else if (shape === "pear") { c.moveTo(cx, y); c.bezierCurveTo(x + w * 0.88, y - h * 0.02, x + w * 1.06, y + h * 0.62, cx, y + h); c.bezierCurveTo(x - w * 0.06, y + h * 0.62, x + w * 0.12, y - h * 0.02, cx, y); }
+    else if (shape === "bean") { c.moveTo(x + w * 0.04, cy); c.bezierCurveTo(x - w * 0.04, y + h * 0.18, x + w * 0.34, y - h * 0.06, x + w * 0.6, y + h * 0.14); c.bezierCurveTo(x + w * 0.82, y + h * 0.3, x + w * 1.06, y + h * 0.5, x + w * 0.88, y + h * 0.82); c.bezierCurveTo(x + w * 0.68, y + h * 1.06, x + w * 0.2, y + h * 1.0, x + w * 0.08, y + h * 0.72); c.bezierCurveTo(x - w * 0.02, y + h * 0.54, x + w * 0.04, y + h * 0.34, x + w * 0.04, cy); c.closePath(); }
+    else if (shape === "blob") { const n = 11; for (let i = 0; i <= n; i++) { const a = i / n * 6.283; const wob = 1 + Math.sin(i * 2.3) * 0.08 + Math.cos(i * 1.4) * 0.05; const px = cx + Math.cos(a) * (w / 2) * wob, py = cy + Math.sin(a) * (h / 2) * wob; i ? c.lineTo(px, py) : c.moveTo(px, py); } c.closePath(); }
+    else { const r = Math.min(w, h) * 0.46; c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
+  }
+
+  const ARCHDEF = {
+    roundling: { shape: "ball",     bw: .78, bh: .70, hr: .26, head: "merged", legs: "stub",  faceY: .36 },
+    tower:     { shape: "capsule",  bw: .60, bh: .70, hr: .25, head: "merged", legs: "stick", faceY: .20 },
+    chibi:     { shape: "ball",     bw: .54, bh: .42, hr: .40, head: "big",    legs: "stub",  faceY: 0   },
+    bean:      { shape: "bean",     bw: .68, bh: .64, hr: .25, head: "merged", legs: "stub",  faceY: .30, faceX: .60 },
+    slug:      { shape: "capsule",  bw: 1.0, bh: .34, hr: .21, head: "merged", legs: "none",  faceY: .34, faceX: .76 },
+    birdie:    { shape: "egg",      bw: .50, bh: .74, hr: .23, head: "merged", legs: "stick", faceY: .24, beak: 1 },
+    teardrop:  { shape: "teardrop", bw: .74, bh: .72, hr: .25, head: "merged", legs: "stub",  faceY: .34 },
+    quad:      { shape: "capsule",  bw: .94, bh: .44, hr: .24, head: "front",  legs: "quad",  faceY: .30 },
+    floaty:    { shape: "egg",      bw: .76, bh: .58, hr: .25, head: "merged", legs: "none",  faceY: .34, hover: 1 },
+    lump:      { shape: "ball",     bw: .94, bh: .54, hr: .27, head: "merged", legs: "stub",  faceY: .30 },
+  };
+
   function draw(c, tr, fx, footY, S, pose, phase) {
     const M = MATMOD[tr.material] || MATMOD.matte;
-    const s = clamp(tr.sat + M.ds, 8, 98), L = M.l, dL = clamp(M.l - 17, 12, 70), bL = clamp(M.l + 22, 40, 92);
-    const body = `hsl(${tr.hue},${s}%,${L}%)`, dark = `hsl(${tr.hue},${clamp(s - 8, 6, 90)}%,${dL}%)`,
-          belly = `hsl(${tr.hue},${clamp(s - 6, 6, 90)}%,${bL}%)`, acc = `hsl(${tr.hue2},${clamp(s + 14, 6, 98)}%,58%)`,
-          ink = `hsl(${tr.hue},40%,15%)`;
+    const s = clamp(tr.sat + M.ds, 8, 98), L = M.l;
+    const body = `hsl(${tr.hue},${s}%,${L}%)`, dark = `hsl(${tr.hue},${clamp(s - 8, 6, 90)}%,${clamp(L - 24, 12, 70)}%)`,
+          belly = `hsl(${tr.hue},${clamp(s - 6, 6, 90)}%,${clamp(L + 22, 40, 92)}%)`, acc = `hsl(${tr.hue2},${clamp(s + 14, 6, 98)}%,58%)`,
+          ink = `hsl(${tr.hue},40%,21%)`;
+    const A = ARCHDEF[tr.archetype] || ARCHDEF.tower;
     c.save(); c.translate(fx, footY);
-    let bw = (tr.body === "tall" ? 0.50 : tr.body === "egg" ? 0.58 : tr.body === "bean" ? 0.54 :
-              tr.body === "blob" ? 0.70 : tr.body === "chonk" ? 0.72 : 0.62) * S;
-    let bh = (tr.body === "tall" ? 0.62 : tr.body === "chonk" ? 0.46 : tr.body === "blob" ? 0.48 : 0.50) * S;
-    let legL = 0.26 * S, headR = (tr.body === "chonk" ? 0.30 : 0.27) * S;
+    if (A.hover) c.translate(0, Math.sin(phase * 0.9) * 0.04 * S - 0.06 * S);
+
+    const bw = A.bw * S, bh = A.bh * S, hr = A.hr * S, bx = -bw / 2;
+    const legL = A.legs === "stick" ? 0.24 * S : A.legs === "none" ? 0.03 * S : 0.07 * S;
     const bBot = -legL, bTop = bBot - bh, bMid = (bTop + bBot) / 2;
-    if (tr.aura) drawAura(c, tr, bw * 0.05, bMid - headR * 0.3, Math.max(bw, bh) * 0.95, phase);
+
+    if (tr.aura) drawAura(c, tr, 0, bMid, Math.max(bw, bh) * 0.92, phase);
     if (tr.glow) { c.shadowColor = acc; c.shadowBlur = 16; }
 
-    // tail
+    // head geometry
+    const drawHead = A.head !== "merged";
+    let hx, hcy, earY, faceY;
+    if (A.head === "big") { hx = bw * 0.04; hcy = bTop - hr * 0.5; earY = hcy - hr * 0.5; faceY = hcy; }
+    else if (A.head === "front") { hx = bw * 0.30; hcy = bMid - bh * 0.06; earY = hcy - hr * 0.6; faceY = hcy; }
+    else { hx = (A.faceX != null ? (A.faceX - 0.5) * bw : bw * 0.12); earY = bTop + hr * 0.12; faceY = bTop + A.faceY * bh; }
+
+    // ---- legs (behind body) ----
+    c.strokeStyle = dark; c.lineCap = "round";
+    if (A.legs === "stick") {
+      c.lineWidth = 0.10 * S; const lt = bBot - 0.01 * S;
+      const leg = (dx, sw) => { c.beginPath(); c.moveTo(dx, lt); c.lineTo(dx + sw, 0); c.stroke(); };
+      if (pose === "run") { const sp = Math.sin(phase) * 0.13 * S; leg(-0.12 * S, sp); leg(0.13 * S, -sp); }
+      else if (pose === "jump") { leg(-0.10 * S, -0.12 * S); leg(0.13 * S, -0.18 * S); }
+      else { leg(-0.14 * S, 0); leg(0.12 * S, 0); }
+    } else if (A.legs === "quad") {
+      c.lineWidth = 0.075 * S; const lt = bBot - 0.01 * S;
+      [-0.34, -0.12, 0.12, 0.34].forEach((f, i) => { const sw = pose === "run" ? Math.sin(phase + i * 1.6) * 0.05 * S : 0; c.beginPath(); c.moveTo(f * bw, lt); c.lineTo(f * bw + sw, 0); c.stroke(); });
+    } else if (A.legs === "stub") {
+      c.fillStyle = dark; const a1 = pose === "run" ? Math.sin(phase) * 0.04 * S : 0;
+      c.beginPath(); c.ellipse(-bw * 0.24, bBot + 0.05 * S - Math.max(0, a1), 0.15 * S, 0.095 * S, 0, 0, 7); c.fill();
+      c.beginPath(); c.ellipse(bw * 0.24, bBot + 0.05 * S - Math.max(0, -a1), 0.15 * S, 0.095 * S, 0, 0, 7); c.fill();
+    } else { c.fillStyle = dark; c.globalAlpha = 0.22; c.beginPath(); c.ellipse(0, 0, bw * 0.34, 0.05 * S, 0, 0, 7); c.fill(); c.globalAlpha = 1; }
+
+    // ---- tail (behind body) ----
     if (tr.tail !== "none") {
-      c.fillStyle = dark; const tx = -bw * 0.48, ty = bMid + 0.04 * S;
-      if (tr.tail === "long") { c.beginPath(); c.moveTo(tx, ty); c.quadraticCurveTo(tx - .28 * S, ty - .04 * S, tx - .30 * S, ty + .14 * S); c.lineTo(tx - .16 * S, ty + .16 * S); c.quadraticCurveTo(tx - .08 * S, ty + .06 * S, tx, ty + .08 * S); c.fill(); }
-      else if (tr.tail === "puff") { circle(c, tx - .14 * S, ty + .04 * S, .14 * S); c.fill(); }
-      else if (tr.tail === "curl") { c.strokeStyle = dark; c.lineWidth = .07 * S; c.lineCap = "round"; c.beginPath(); c.moveTo(tx, ty); c.quadraticCurveTo(tx - .22 * S, ty - .02 * S, tx - .18 * S, ty + .16 * S); c.quadraticCurveTo(tx - .14 * S, ty + .28 * S, tx - .02 * S, ty + .22 * S); c.stroke(); }
-      else { circle(c, tx - .04 * S, ty + .03 * S, .08 * S); c.fill(); }
+      c.fillStyle = dark; const tx = bx + 0.04 * S, ty = bMid + 0.04 * S;
+      if (tr.tail === "long") { c.beginPath(); c.moveTo(tx, ty); c.quadraticCurveTo(tx - .26 * S, ty - .04 * S, tx - .28 * S, ty + .14 * S); c.lineTo(tx - .14 * S, ty + .16 * S); c.quadraticCurveTo(tx - .06 * S, ty + .06 * S, tx, ty + .08 * S); c.fill(); }
+      else if (tr.tail === "puff") { circle(c, tx - .12 * S, ty + .04 * S, .13 * S); c.fill(); }
+      else if (tr.tail === "curl") { c.strokeStyle = dark; c.lineWidth = .07 * S; c.lineCap = "round"; c.beginPath(); c.moveTo(tx, ty); c.quadraticCurveTo(tx - .2 * S, ty - .02 * S, tx - .16 * S, ty + .16 * S); c.quadraticCurveTo(tx - .12 * S, ty + .28 * S, tx, ty + .22 * S); c.stroke(); }
+      else { circle(c, tx - .03 * S, ty + .03 * S, .08 * S); c.fill(); }
     }
 
-    // legs
-    c.strokeStyle = dark; c.lineWidth = 0.11 * S; c.lineCap = "round";
-    const lt = bBot - 0.01 * S;
-    const leg = (dx, sw) => { c.beginPath(); c.moveTo(dx, lt); c.lineTo(dx + sw, 0); c.stroke(); };
-    if (pose === "run") { const sp = Math.sin(phase) * 0.14 * S; leg(-0.12 * S, sp); leg(0.13 * S, -sp); }
-    else if (pose === "jump") { leg(-0.10 * S, -0.12 * S); leg(0.13 * S, -0.18 * S); }
-    else { leg(-0.16 * S, 0.0); leg(0.12 * S, 0.0); }
-
-    // body (material-aware fill)
-    rr(c, -bw / 2, bTop, bw, bh, Math.min(bw, bh) * 0.46);
-    c.fillStyle = bodyPaint(c, tr, -bw / 2, bTop, bw, bh, s, L); c.fill();
-    // soft volume: top-left highlight + bottom ambient occlusion (clipped to body)
-    c.save(); c.beginPath(); rr(c, -bw / 2, bTop, bw, bh, Math.min(bw, bh) * 0.46); c.clip();
-    const hg = c.createRadialGradient(-bw * 0.16, bTop + bh * 0.22, bh * 0.08, -bw * 0.16, bTop + bh * 0.22, bh * 0.95);
-    hg.addColorStop(0, "#ffffff4a"); hg.addColorStop(0.62, "#ffffff00"); c.fillStyle = hg; c.fillRect(-bw / 2, bTop, bw, bh);
-    const ag = c.createLinearGradient(0, bTop + bh * 0.45, 0, bTop + bh); ag.addColorStop(0, "#00000000"); ag.addColorStop(1, "#00000030"); c.fillStyle = ag; c.fillRect(-bw / 2, bTop, bw, bh);
+    // ---- body ----
+    pathBody(c, A.shape, bx, bTop, bw, bh); c.fillStyle = bodyPaint(c, tr, bx, bTop, bw, bh, s, L); c.fill();
+    c.save(); pathBody(c, A.shape, bx, bTop, bw, bh); c.clip();
+    const hg = c.createRadialGradient(bx + bw * 0.34, bTop + bh * 0.22, bh * 0.05, bx + bw * 0.34, bTop + bh * 0.22, Math.max(bw, bh) * 0.9);
+    hg.addColorStop(0, "#ffffff55"); hg.addColorStop(0.6, "#ffffff00"); c.fillStyle = hg; c.fillRect(bx, bTop, bw, bh);
+    const ag = c.createLinearGradient(0, bTop + bh * 0.5, 0, bTop + bh); ag.addColorStop(0, "#00000000"); ag.addColorStop(1, "#00000036"); c.fillStyle = ag; c.fillRect(bx, bTop, bw, bh);
+    // pattern (clipped to body)
+    if (tr.pattern === "belly") { c.fillStyle = belly; c.beginPath(); c.ellipse(hx * 0.5, bTop + bh * 0.64, bw * 0.3, bh * 0.3, 0, 0, 7); c.fill(); }
+    else if (tr.pattern === "spots") { c.fillStyle = dark; [[-.12, .08], [.13, -.02], [.0, .18]].forEach(p => { circle(c, p[0] * S, bMid + p[1] * S, .05 * S); c.fill(); }); }
+    else if (tr.pattern === "stripe") { c.fillStyle = dark; for (let k = -1; k <= 1; k++) c.fillRect(k * 0.17 * S - 0.02 * S, bTop, 0.045 * S, bh); }
+    else if (tr.pattern === "patch") { c.fillStyle = dark; circle(c, bw * 0.18, bMid + 0.04 * S, 0.18 * S); c.fill(); }
+    else if (tr.pattern === "star") { c.fillStyle = belly; star(c, 0, bMid, 0.15 * S, 5); c.fill(); }
     c.restore();
-    c.lineWidth = 0.035 * S; c.strokeStyle = ink; c.stroke();
-    if (M.sheen) { c.save(); c.shadowBlur = 0; c.fillStyle = "#ffffff66"; c.beginPath(); c.ellipse(-bw * 0.16, bTop + bh * 0.26, bw * 0.2, bh * 0.16, -0.5, 0, 7); c.fill(); c.restore(); }
+    c.lineWidth = 0.035 * S; c.strokeStyle = ink; pathBody(c, A.shape, bx, bTop, bw, bh); c.stroke();
+    if (M.sheen) { c.save(); c.shadowBlur = 0; c.fillStyle = "#ffffff66"; c.beginPath(); c.ellipse(bx + bw * 0.32, bTop + bh * 0.26, bw * 0.18, bh * 0.14, -0.5, 0, 7); c.fill(); c.restore(); }
 
-    // pattern
-    if (tr.pattern === "belly") { c.fillStyle = belly; rr(c, -bw * 0.26, bMid - 0.02 * S, bw * 0.48, bh * 0.5, 0.08 * S); c.fill(); }
-    else if (tr.pattern === "spots") { c.fillStyle = dark; [[-.10, 0], [.12, -.06], [.03, .09]].forEach(p => { circle(c, p[0] * S, bMid + p[1] * S, .045 * S); c.fill(); }); }
-    else if (tr.pattern === "stripe") { c.fillStyle = dark; c.fillRect(-0.03 * S, bTop, 0.05 * S, bh); }
-    else if (tr.pattern === "patch") { c.fillStyle = dark; circle(c, bw * 0.16, bMid + 0.02 * S, 0.16 * S); c.fill(); }
-    else if (tr.pattern === "star") { c.fillStyle = belly; star(c, -bw * 0.02, bMid, 0.13 * S, 5); c.fill(); }
+    // ---- ears + (separate) head ----
+    drawEars(c, tr, hx, A.head === "merged" ? earY : hcy, hr, body, dark, acc, ink, S);
+    if (drawHead) {
+      c.fillStyle = body; circle(c, hx, hcy, hr); c.fill();
+      c.save(); c.beginPath(); c.arc(hx, hcy, hr, 0, 7); c.clip(); const hh = c.createRadialGradient(hx - hr * 0.4, hcy - hr * 0.42, hr * 0.1, hx - hr * 0.4, hcy - hr * 0.42, hr * 1.5); hh.addColorStop(0, "#ffffff4a"); hh.addColorStop(0.6, "#ffffff00"); c.fillStyle = hh; c.beginPath(); c.arc(hx, hcy, hr, 0, 7); c.fill(); c.restore();
+      c.lineWidth = 0.035 * S; c.strokeStyle = ink; circle(c, hx, hcy, hr); c.stroke();
+    }
 
-    // head
-    const hx = bw * 0.16, hy = bTop - headR * 0.5;
-    c.fillStyle = body; c.strokeStyle = ink; c.lineWidth = 0.03 * S;
-    drawEars(c, tr, hx, hy, headR, body, dark, acc, ink, S);
-    c.fillStyle = body; circle(c, hx, hy, headR); c.fill();
-    c.save(); c.beginPath(); c.arc(hx, hy, headR, 0, 7); c.clip(); const hh = c.createRadialGradient(hx - headR * 0.4, hy - headR * 0.42, headR * 0.1, hx - headR * 0.4, hy - headR * 0.42, headR * 1.5); hh.addColorStop(0, "#ffffff46"); hh.addColorStop(0.6, "#ffffff00"); c.fillStyle = hh; c.beginPath(); c.arc(hx, hy, headR, 0, 7); c.fill(); c.restore();
-    c.lineWidth = 0.035 * S; c.strokeStyle = ink; c.stroke();
-
-    // eyes + mouth
-    const ex = hx + headR * 0.42, ey = hy - headR * 0.05;
+    // ---- face ----
+    const ex = hx + hr * 0.42, ey = faceY - hr * 0.05;
+    if (A.beak) { c.fillStyle = "#ffb24a"; c.beginPath(); c.moveTo(hx + hr * 0.5, faceY + hr * 0.16); c.lineTo(hx + hr * 1.05, faceY + hr * 0.32); c.lineTo(hx + hr * 0.5, faceY + hr * 0.48); c.closePath(); c.fill(); }
     drawEyes(c, tr, ex, ey, ink, S, phase);
-    drawMouth(c, tr, hx, hy, headR, ink, S);
-    if ((hashStr(tr.seed + "blush") & 3) === 0) { c.save(); c.globalAlpha = 0.4; c.fillStyle = "#ff7da6"; circle(c, ex - headR * 0.62, ey + headR * 0.34, headR * 0.16); c.fill(); circle(c, ex + headR * 0.18, ey + headR * 0.34, headR * 0.16); c.fill(); c.restore(); }
+    if (!A.beak) drawMouth(c, tr, hx, faceY, hr, ink, S);
+    if ((hashStr(tr.seed + "blush") % 5) < 3) { c.save(); c.globalAlpha = 0.3; c.fillStyle = "#ff7da6"; circle(c, ex - hr * 0.64, ey + hr * 0.42, hr * 0.2); c.fill(); circle(c, ex + hr * 0.22, ey + hr * 0.42, hr * 0.2); c.fill(); c.restore(); }
 
-    // accessory
-    drawAcc(c, tr, hx, hy, headR, bw, bh, bTop, ex, ey, acc, ink, S);
-    // rarity sparkle (twinkles, animated in-game via phase)
-    if (tr.sparkle) { c.shadowBlur = 0; c.fillStyle = "#ffffff"; [[-.32, -.16], [.34, -.34], [.08, -.52]].forEach((p, i) => { const tw = 0.5 + 0.5 * Math.sin(phase * 1.3 + i * 2.1); c.globalAlpha = 0.45 + 0.55 * tw; star(c, p[0] * S, bTop + p[1] * S, S * 0.05 * (0.7 + tw * 0.6), 4); c.fill(); }); c.globalAlpha = 1; }
+    // ---- accessory + sparkle ----
+    drawAcc(c, tr, hx, drawHead ? hcy : faceY, hr, bw, bh, bTop, ex, ey, acc, ink, S);
+    if (tr.sparkle) { c.shadowBlur = 0; c.fillStyle = "#ffffff"; [[-.32, -.16], [.34, -.34], [.08, -.52]].forEach((p, i) => { const tw = 0.5 + 0.5 * Math.sin(phase * 1.3 + i * 2.1); c.globalAlpha = 0.45 + 0.55 * tw; star(c, p[0] * S, bMid + p[1] * S, S * 0.05 * (0.7 + tw * 0.6), 4); c.fill(); }); c.globalAlpha = 1; }
     c.restore();
   }
 
@@ -486,18 +533,19 @@ const Skins = (() => {
 
   function drawEyes(c, tr, ex, ey, ink, S, phase) {
     const e = tr.eyes;
-    const blink = phase != null && ((phase * 0.37) % 5) < 0.12;   // occasional blink in-game
-    if (e === "sleepy") { c.strokeStyle = ink; c.lineWidth = .04 * S; c.beginPath(); c.moveTo(ex - .05 * S, ey); c.lineTo(ex + .06 * S, ey); c.stroke(); c.beginPath(); c.moveTo(ex - .24 * S, ey); c.lineTo(ex - .13 * S, ey); c.stroke(); return; }
-    if (e === "happy") { c.strokeStyle = ink; c.lineWidth = .045 * S; c.lineCap = "round"; [0, -.19].forEach(d => { c.beginPath(); c.arc(ex + d * S, ey + .02 * S, .06 * S, Math.PI * 1.15, Math.PI * 1.85); c.stroke(); }); return; }
-    const er = e === "wide" ? .085 * S : e === "round" ? .07 * S : .055 * S;
-    const drawEye = (x, closed) => {
-      if (closed) { c.strokeStyle = ink; c.lineWidth = .045 * S; c.lineCap = "round"; c.beginPath(); c.moveTo(x - .05 * S, ey); c.lineTo(x + .05 * S, ey); c.stroke(); return; }
+    const blink = phase != null && ((phase * 0.37) % 5) < 0.1;   // occasional blink in-game
+    const er = (e === "wide" ? .10 : e === "round" ? .088 : .074) * S;   // bigger, sweeter eyes
+    const xs = [ex, ex - .21 * S];
+    // happy upward arc (used for sleepy/happy/wink/blink so nothing reads dead-eyed or grumpy)
+    const arc = x => { c.strokeStyle = ink; c.lineWidth = .045 * S; c.lineCap = "round"; c.beginPath(); c.arc(x, ey + er * .25, er * .95, Math.PI * 1.18, Math.PI * 1.82); c.stroke(); };
+    if (e === "sleepy" || e === "happy") { xs.forEach(arc); return; }
+    xs.forEach((x, i) => {
+      if (blink || (e === "wink" && i === 1)) { arc(x); return; }
       c.fillStyle = "#fff"; circle(c, x, ey, er); c.fill();
-      c.fillStyle = ink; circle(c, x + er * .35, ey, er * .55); c.fill();
-      c.fillStyle = "#ffffffcc"; circle(c, x + er * .05, ey - er * .35, er * .26); c.fill();   // shine
-    };
-    drawEye(ex, blink);
-    drawEye(ex - .19 * S, blink || e === "wink");
+      c.fillStyle = ink; circle(c, x, ey + er * .22, er * .62); c.fill();                 // pupil low & centered
+      c.fillStyle = "#ffffffe6"; circle(c, x - er * .26, ey - er * .26, er * .32); c.fill(); // big catchlight
+      c.fillStyle = "#ffffffaa"; circle(c, x + er * .24, ey + er * .18, er * .15); c.fill(); // 2nd shine
+    });
   }
 
   function drawAcc(c, tr, hx, hy, headR, bw, bh, bTop, ex, ey, acc, ink, S) {
@@ -526,106 +574,106 @@ const Skins = (() => {
    in section 8.  Journey order = array order.  Replaced by generated set.   */
 const THEMES = [
   /*__THEMES_START__*/
-  {"id":"meadow-dawnfield","name":"Dawnfield","region":"Verdant Meadows","tier":1,"sky0":"#ffd9b0","sky1":"#fff3da","ground":"#8ed16a","line":"#5ba43e","ob":"#7c4a26","fly":"#3c5a78","accent":"#ffc23a","star":false,"parallax":"hills","obStyle":"stump","flyStyle":"bird"},
-  {"id":"meadow-cloverbreeze","name":"Cloverbreeze","region":"Verdant Meadows","tier":1,"sky0":"#b8e6ff","sky1":"#ecfbff","ground":"#79c656","line":"#4f9540","ob":"#6e3f22","fly":"#d8543c","accent":"#ffe14a","star":false,"parallax":"clouds","obStyle":"mushroom","flyStyle":"bird"},
-  {"id":"meadow-honeyglade","name":"Honeyglade","region":"Verdant Meadows","tier":1,"sky0":"#ffe9a8","sky1":"#fff7d8","ground":"#9bce5a","line":"#6ba33c","ob":"#6b4422","fly":"#355a7a","accent":"#ff9d3a","star":false,"parallax":"trees","obStyle":"bush","flyStyle":"bird"},
-  {"id":"meadow-brookhollow","name":"Brookhollow","region":"Verdant Meadows","tier":1,"sky0":"#c2ecff","sky1":"#e9fbf2","ground":"#6fc474","line":"#46924f","ob":"#6a655a","fly":"#d98a2e","accent":"#ffd84a","star":false,"parallax":"hills","obStyle":"rock","flyStyle":"leaf"},
-  {"id":"meadow-sunnymeade","name":"Sunnymeade","region":"Verdant Meadows","tier":1,"sky0":"#aee0ff","sky1":"#f0fbff","ground":"#84cf57","line":"#57a043","ob":"#7a4a28","fly":"#d94f3a","accent":"#ffe24a","star":false,"parallax":"hills","obStyle":"mound","flyStyle":"bird"},
-  {"id":"meadow-petalwind","name":"Petalwind","region":"Verdant Meadows","tier":1,"sky0":"#ffd6ea","sky1":"#fff2e4","ground":"#8ad06a","line":"#5aa244","ob":"#6e4324","fly":"#476087","accent":"#ff5fa0","star":false,"parallax":"clouds","obStyle":"sprout","flyStyle":"bird"},
-  {"id":"meadow-mistmorrow","name":"Mistmorrow","region":"Verdant Meadows","tier":1,"sky0":"#d6e9e0","sky1":"#f4faf2","ground":"#7cbf7a","line":"#57935a","ob":"#5d5240","fly":"#4a6470","accent":"#ffd166","star":false,"parallax":"mountains","obStyle":"stump","flyStyle":"bird"},
-  {"id":"meadow-pasture-lull","name":"Pasture Lull","region":"Verdant Meadows","tier":1,"sky0":"#c4e9ff","sky1":"#eef9ff","ground":"#81c95c","line":"#549a45","ob":"#8a5a32","fly":"#34506a","accent":"#ffdd4a","star":false,"parallax":"hills","obStyle":"fence","flyStyle":"bird"},
-  {"id":"meadow-greengale","name":"Greengale","region":"Verdant Meadows","tier":1,"sky0":"#c8ecd0","sky1":"#f0fbef","ground":"#6dc063","line":"#46934a","ob":"#6a4528","fly":"#c9622e","accent":"#ffe05a","star":false,"parallax":"waves","obStyle":"bush","flyStyle":"leaf"},
-  {"id":"meadow-amberfade","name":"Amberfade","region":"Verdant Meadows","tier":1,"sky0":"#ffc878","sky1":"#ffe9b0","ground":"#7bb84a","line":"#4f8a34","ob":"#5e3a1e","fly":"#3a4f6b","accent":"#ff8a3a","star":false,"parallax":"hills","obStyle":"stump","flyStyle":"bird"},
-  {"id":"candy-frosting-dawn","name":"Frosting Dawn","region":"Candy Coast","tier":2,"sky0":"#ffe3ef","sky1":"#fff4dd","ground":"#bff0d4","line":"#82d6aa","ob":"#e23e76","fly":"#8b5cf6","accent":"#ffd23f","star":false,"parallax":"candy","obStyle":"gumdrop","flyStyle":"jelly"},
-  {"id":"candy-lemon-sherbet","name":"Lemon Sherbet Strand","region":"Candy Coast","tier":2,"sky0":"#fff7cc","sky1":"#fffbe9","ground":"#c6ecfa","line":"#88cfe8","ob":"#ff6a35","fly":"#b14dff","accent":"#ff3d8b","star":false,"parallax":"clouds","obStyle":"buoy","flyStyle":"leaf"},
-  {"id":"candy-bubblegum-tide","name":"Bubblegum Tide","region":"Candy Coast","tier":2,"sky0":"#d4ecff","sky1":"#fbe6ff","ground":"#ffd9ec","line":"#f29ec7","ob":"#7a2fd6","fly":"#ff5aa0","accent":"#36e0c7","star":false,"parallax":"waves","obStyle":"gumdrop","flyStyle":"jelly"},
-  {"id":"candy-caramel-cove","name":"Caramel Cove","region":"Candy Coast","tier":2,"sky0":"#ffe6cf","sky1":"#fff6e6","ground":"#bfe9d8","line":"#7fc9ad","ob":"#c75a1e","fly":"#6a4bd6","accent":"#ffcf3d","star":false,"parallax":"dunes","obStyle":"barrel","flyStyle":"drone"},
-  {"id":"candy-mint-choco-drift","name":"Mint Choco Drift","region":"Candy Coast","tier":2,"sky0":"#d6f5e4","sky1":"#fff2f7","ground":"#f3e2c8","line":"#d8b98a","ob":"#4d2a18","fly":"#ff5fa8","accent":"#ffd84d","star":false,"parallax":"hills","obStyle":"stump","flyStyle":"bird"},
-  {"id":"candy-cotton-candy-reach","name":"Cotton Candy Reach","region":"Candy Coast","tier":2,"sky0":"#ffd9f0","sky1":"#d9ecff","ground":"#c9f3e0","line":"#84d6b0","ob":"#d63a8c","fly":"#8a3df0","accent":"#ffe04d","star":false,"parallax":"candy","obStyle":"gumdrop","flyStyle":"jelly"},
-  {"id":"candy-lavender-lagoon","name":"Lavender Lagoon","region":"Candy Coast","tier":2,"sky0":"#e3d4ff","sky1":"#ffe6f2","ground":"#cdeede","line":"#82cdb0","ob":"#6a23b8","fly":"#ff6b3d","accent":"#ffd23f","star":false,"parallax":"crystals","obStyle":"crystal","flyStyle":"jelly"},
-  {"id":"candy-watermelon-wash","name":"Watermelon Wash","region":"Candy Coast","tier":2,"sky0":"#d9f3df","sky1":"#fff0ee","ground":"#bfe7a8","line":"#8fc46a","ob":"#e23b3b","fly":"#7a3df0","accent":"#ff7ab0","star":false,"parallax":"mushrooms","obStyle":"mound","flyStyle":"leaf"},
-  {"id":"candy-peach-sorbet-bay","name":"Peach Sorbet Bay","region":"Candy Coast","tier":2,"sky0":"#ffe0cf","sky1":"#fff2e3","ground":"#c7eef0","line":"#82cdd0","ob":"#e0356b","fly":"#5b7bff","accent":"#ffc83d","star":false,"parallax":"candy","obStyle":"mushroom","flyStyle":"drone"},
-  {"id":"candy-twilight-taffy","name":"Twilight Taffy","region":"Candy Coast","tier":2,"sky0":"#5a3d8c","sky1":"#ff9ec4","ground":"#3a2a5e","line":"#7a5fb0","ob":"#ff5fa8","fly":"#3ce0d0","accent":"#ffd23f","star":true,"parallax":"aurora","obStyle":"lantern","flyStyle":"ghost"},
-  {"id":"forest-dawnfield","name":"Dawnfield","region":"Deep Forest","tier":3,"sky0":"#d4eed0","sky1":"#aedcae","ground":"#6fa869","line":"#4c7d49","ob":"#4a3526","fly":"#d2802f","accent":"#e9f48a","star":false,"parallax":"trees","obStyle":"stump","flyStyle":"leaf"},
-  {"id":"forest-mossglade","name":"Moss Glade","region":"Deep Forest","tier":3,"sky0":"#c8e9c2","sky1":"#9ad19a","ground":"#5f9a5c","line":"#3f6f3d","ob":"#3a2a1c","fly":"#e0a93f","accent":"#c6ef72","star":false,"parallax":"trees","obStyle":"mound","flyStyle":"leaf"},
-  {"id":"forest-fernhollow","name":"Fern Hollow","region":"Deep Forest","tier":3,"sky0":"#c0e6cf","sky1":"#8fcdb0","ground":"#4f8f64","line":"#356645","ob":"#3b2b22","fly":"#ef9a3c","accent":"#b6f0a0","star":false,"parallax":"hills","obStyle":"sprout","flyStyle":"leaf"},
-  {"id":"forest-dappledlight","name":"Dappled Light","region":"Deep Forest","tier":3,"sky0":"#e2f0bf","sky1":"#b6dd9a","ground":"#6ba85e","line":"#4a7d3f","ob":"#4d3621","fly":"#c46a26","accent":"#faf07a","star":false,"parallax":"trees","obStyle":"stump","flyStyle":"bird"},
-  {"id":"forest-toadstoolring","name":"Toadstool Ring","region":"Deep Forest","tier":3,"sky0":"#cfe9c8","sky1":"#98ce9b","ground":"#5d9659","line":"#3d6b3a","ob":"#c0413e","fly":"#d98a2e","accent":"#f4ef7d","star":false,"parallax":"mushrooms","obStyle":"mushroom","flyStyle":"leaf"},
-  {"id":"forest-brambleway","name":"Brambleway","region":"Deep Forest","tier":3,"sky0":"#aed0a8","sky1":"#7cb583","ground":"#4a7d49","line":"#2f5630","ob":"#2e2014","fly":"#cf7a2c","accent":"#b9e85f","star":false,"parallax":"trees","obStyle":"vine","flyStyle":"bat"},
-  {"id":"forest-willowshade","name":"Willow Shade","region":"Deep Forest","tier":3,"sky0":"#bfe3cb","sky1":"#8ac6ad","ground":"#4d8a66","line":"#335f47","ob":"#36281f","fly":"#e7b14a","accent":"#a9ecc0","star":false,"parallax":"bamboo","obStyle":"bush","flyStyle":"leaf"},
-  {"id":"forest-pinewall","name":"Pinewall","region":"Deep Forest","tier":3,"sky0":"#bcdcc0","sky1":"#84b98c","ground":"#4e7d45","line":"#2e4f29","ob":"#5a3e22","fly":"#d9842e","accent":"#cdee6a","star":false,"parallax":"trees","obStyle":"pillar","flyStyle":"bird"},
-  {"id":"forest-glowcap","name":"Glowcap Grove","region":"Deep Forest","tier":3,"sky0":"#a9d2bd","sky1":"#6fab94","ground":"#45836a","line":"#2c5848","ob":"#2d2418","fly":"#46e0c4","accent":"#8df0c8","star":true,"parallax":"mushrooms","obStyle":"mushroom","flyStyle":"jelly"},
-  {"id":"forest-twilightcanopy","name":"Twilight Canopy","region":"Deep Forest","tier":3,"sky0":"#7fb091","sky1":"#cf9a64","ground":"#3f6e44","line":"#294a2e","ob":"#45291a","fly":"#e3f08a","accent":"#f3d27a","star":false,"parallax":"trees","obStyle":"stump","flyStyle":"leaf"},
-  {"id":"synth-neonmile","name":"Neon Mile","region":"Synthwave Grid","tier":4,"sky0":"#1b0a36","sky1":"#7a1f86","ground":"#0b0418","line":"#ff43b3","ob":"#ff2fb0","fly":"#21e6ff","accent":"#ffe15c","star":true,"parallax":"grid","obStyle":"neon","flyStyle":"drone"},
-  {"id":"synth-violetdrift","name":"Violet Drift","region":"Synthwave Grid","tier":4,"sky0":"#21103f","sky1":"#5b2a8a","ground":"#100624","line":"#b15cff","ob":"#c64bff","fly":"#00f0d0","accent":"#ff5fa8","star":true,"parallax":"clouds","obStyle":"pylon","flyStyle":"jelly"},
-  {"id":"synth-cyanmirage","name":"Cyan Mirage","region":"Synthwave Grid","tier":4,"sky0":"#0a1838","sky1":"#163f63","ground":"#06101f","line":"#2fffe0","ob":"#19f0ff","fly":"#ff45c8","accent":"#ffd84a","star":true,"parallax":"waves","obStyle":"crystal","flyStyle":"drone"},
-  {"id":"synth-magentahaze","name":"Magenta Haze","region":"Synthwave Grid","tier":4,"sky0":"#2a0b30","sky1":"#8a1f5a","ground":"#12041a","line":"#ff5ca0","ob":"#ff2f8e","fly":"#5cd9ff","accent":"#ffd24d","star":true,"parallax":"grid","obStyle":"spike","flyStyle":"bird"},
-  {"id":"synth-gridhorizon","name":"Grid Horizon","region":"Synthwave Grid","tier":4,"sky0":"#311152","sky1":"#ff7a59","ground":"#14062a","line":"#ff8a4c","ob":"#1fe5ff","fly":"#ff4fa8","accent":"#ffe15c","star":false,"parallax":"dunes","obStyle":"totem","flyStyle":"bird"},
-  {"id":"synth-pulsewave","name":"Pulse Wave","region":"Synthwave Grid","tier":4,"sky0":"#160a3a","sky1":"#3a2a8a","ground":"#08051c","line":"#00e5ff","ob":"#00f5d4","fly":"#ff3cac","accent":"#ffe24d","star":true,"parallax":"aurora","obStyle":"shard","flyStyle":"ghost"},
-  {"id":"synth-retrosun","name":"Retro Sun","region":"Synthwave Grid","tier":4,"sky0":"#2e0f40","sky1":"#c43b7a","ground":"#120522","line":"#ff6fb0","ob":"#ff45c8","fly":"#4dffea","accent":"#ffd84a","star":true,"parallax":"city","obStyle":"neon","flyStyle":"drone"},
-  {"id":"synth-glasscircuit","name":"Glass Circuit","region":"Synthwave Grid","tier":4,"sky0":"#0c1530","sky1":"#0e3a4a","ground":"#061018","line":"#1fffd0","ob":"#2cffc6","fly":"#ff5cc0","accent":"#ffe15c","star":true,"parallax":"crystals","obStyle":"ice","flyStyle":"jelly"},
-  {"id":"synth-noxeneon","name":"Nox Neon","region":"Synthwave Grid","tier":4,"sky0":"#120630","sky1":"#4a0f6e","ground":"#060214","line":"#ff2fb0","ob":"#ff1f9e","fly":"#15e0ff","accent":"#b65cff","star":true,"parallax":"space","obStyle":"pylon","flyStyle":"bat"},
-  {"id":"synth-electricdusk","name":"Electric Dusk","region":"Synthwave Grid","tier":4,"sky0":"#1d0b3a","sky1":"#7a2f5a","ground":"#0c0420","line":"#ff5c8a","ob":"#ff3c6e","fly":"#2fe0ff","accent":"#ffd84a","star":true,"parallax":"ruins","obStyle":"slab","flyStyle":"drone"},
-  {"id":"frost-dawnfield","name":"Dawnfield","region":"Frostpeak","tier":5,"sky0":"#c9e6ff","sky1":"#f6fcff","ground":"#e9f3fc","line":"#bcd4e9","ob":"#5f7c99","fly":"#3d566e","accent":"#ffd27a","star":false,"parallax":"mountains","obStyle":"ice","flyStyle":"ghost"},
-  {"id":"frost-driftveil","name":"Driftveil","region":"Frostpeak","tier":5,"sky0":"#d6ecff","sky1":"#f0f8ff","ground":"#e3eef8","line":"#b6cee4","ob":"#6b86a3","fly":"#45607b","accent":"#9fe3ff","star":false,"parallax":"clouds","obStyle":"mound","flyStyle":"bird"},
-  {"id":"frost-glacierrun","name":"Glacier Run","region":"Frostpeak","tier":5,"sky0":"#bfe2f7","sky1":"#eaf6ff","ground":"#dceaf6","line":"#a9c8e0","ob":"#4a6f8e","fly":"#2f4d68","accent":"#7ff0e6","star":false,"parallax":"mountains","obStyle":"crystal","flyStyle":"ghost"},
-  {"id":"frost-crystalhollow","name":"Crystal Hollow","region":"Frostpeak","tier":5,"sky0":"#b3d8f0","sky1":"#e2f1fb","ground":"#d3e4f1","line":"#9fbdd8","ob":"#3f6486","fly":"#34557a","accent":"#b58bff","star":false,"parallax":"crystals","obStyle":"shard","flyStyle":"jelly"},
-  {"id":"frost-snowveil","name":"Snowveil Hills","region":"Frostpeak","tier":5,"sky0":"#cae8fb","sky1":"#f2faff","ground":"#e6f1fa","line":"#b8d2e8","ob":"#557390","fly":"#344f68","accent":"#ffe39a","star":false,"parallax":"hills","obStyle":"spike","flyStyle":"bat"},
-  {"id":"frost-rimeridge","name":"Rime Ridge","region":"Frostpeak","tier":5,"sky0":"#a7cbe6","sky1":"#d9ecf8","ground":"#cadcec","line":"#8fb0cd","ob":"#355472","fly":"#213a52","accent":"#6fe0ff","star":false,"parallax":"mountains","obStyle":"ice","flyStyle":"ghost"},
-  {"id":"frost-icevault","name":"Ice Vault","region":"Frostpeak","tier":5,"sky0":"#8fb4d4","sky1":"#c6dcee","ground":"#b8cde0","line":"#7a9bbb","ob":"#2c4866","fly":"#18304a","accent":"#84f0ff","star":false,"parallax":"caverns","obStyle":"pylon","flyStyle":"ghost"},
-  {"id":"frost-auroraborne","name":"Aurora Borne","region":"Frostpeak","tier":5,"sky0":"#16243f","sky1":"#3a5a7a","ground":"#1f3350","line":"#4a78a0","ob":"#9fd8ff","fly":"#c08bff","accent":"#6effc8","star":true,"parallax":"aurora","obStyle":"crystal","flyStyle":"drone"},
-  {"id":"frost-blizzardgale","name":"Blizzard Gale","region":"Frostpeak","tier":5,"sky0":"#93b6d4","sky1":"#cfe2f0","ground":"#c2d6e8","line":"#84a6c4","ob":"#2f4d6b","fly":"#1c344c","accent":"#ffd27a","star":false,"parallax":"mountains","obStyle":"slab","flyStyle":"leaf"},
-  {"id":"frost-thundercap","name":"Thundercap","region":"Frostpeak","tier":5,"sky0":"#5f7fa0","sky1":"#9fbdd6","ground":"#93acc6","line":"#6a8bab","ob":"#20384f","fly":"#0f2236","accent":"#79f0ff","star":false,"parallax":"crystals","obStyle":"tooth","flyStyle":"ghost"},
-  {"id":"ember-cinderwake","name":"Cinderwake","region":"Ember Depths","tier":6,"sky0":"#4a2238","sky1":"#f08a3c","ground":"#2b1620","line":"#f5a85a","ob":"#ffd25e","fly":"#ffe9b0","accent":"#ff5e7a","star":false,"parallax":"caverns","obStyle":"rock","flyStyle":"bat"},
-  {"id":"ember-ashfall","name":"Ashfall Drift","region":"Ember Depths","tier":6,"sky0":"#3a1a2c","sky1":"#d65a2a","ground":"#241019","line":"#e07a3a","ob":"#ffc04d","fly":"#ffd9a0","accent":"#ff486b","star":false,"parallax":"lava","obStyle":"stump","flyStyle":"leaf"},
-  {"id":"ember-magmavein","name":"Magmavein","region":"Ember Depths","tier":6,"sky0":"#2e1530","sky1":"#c2451f","ground":"#1f0e16","line":"#ff7a33","ob":"#ffb13d","fly":"#ffd0a4","accent":"#ffe14a","star":false,"parallax":"crystals","obStyle":"crystal","flyStyle":"bat"},
-  {"id":"ember-obsidianreach","name":"Obsidian Reach","region":"Ember Depths","tier":6,"sky0":"#281228","sky1":"#a83a22","ground":"#170a12","line":"#ff6a2e","ob":"#ff9a3a","fly":"#ffbf8a","accent":"#ffd23c","star":true,"parallax":"caverns","obStyle":"shard","flyStyle":"bat"},
-  {"id":"ember-scorchhollow","name":"Scorch Hollow","region":"Ember Depths","tier":6,"sky0":"#2a1226","sky1":"#b94824","ground":"#1c0d14","line":"#ff7330","ob":"#ffaa3c","fly":"#ff8f5e","accent":"#ffe65a","star":false,"parallax":"ruins","obStyle":"totem","flyStyle":"drone"},
-  {"id":"ember-pyreglow","name":"Pyreglow","region":"Ember Depths","tier":6,"sky0":"#240f22","sky1":"#cf3d18","ground":"#190a11","line":"#ff5e22","ob":"#ff9430","fly":"#ffd7a2","accent":"#ffe23a","star":false,"parallax":"lava","obStyle":"rock","flyStyle":"bat"},
-  {"id":"ember-cinderforge","name":"Cinderforge","region":"Ember Depths","tier":6,"sky0":"#1f0d1f","sky1":"#b83410","ground":"#150812","line":"#ff661f","ob":"#ffa226","fly":"#ff7a3a","accent":"#ffcf2e","star":false,"parallax":"factory","obStyle":"gear","flyStyle":"drone"},
-  {"id":"ember-moltencore","name":"Molten Core","region":"Ember Depths","tier":6,"sky0":"#1c0a1c","sky1":"#c2300c","ground":"#110610","line":"#ff5418","ob":"#ff8f22","fly":"#ffb86a","accent":"#ffe11f","star":false,"parallax":"lava","obStyle":"spike","flyStyle":"bat"},
-  {"id":"ember-infernospire","name":"Infernospire","region":"Ember Depths","tier":6,"sky0":"#18081a","sky1":"#d92a08","ground":"#0e050e","line":"#ff4a14","ob":"#ff8418","fly":"#ffcaa0","accent":"#ffd61f","star":false,"parallax":"lava","obStyle":"anvil","flyStyle":"ghost"},
-  {"id":"ember-ashenabyss","name":"Ashen Abyss","region":"Ember Depths","tier":6,"sky0":"#120610","sky1":"#b81f06","ground":"#0a040a","line":"#ff3c0e","ob":"#ff7a14","fly":"#ff9a4a","accent":"#ffcf16","star":true,"parallax":"caverns","obStyle":"bone","flyStyle":"bat"},
-  {"id":"reef-tidewrack","name":"Tidewrack Hollow","region":"Sunken Reef","tier":7,"sky0":"#0e4d5c","sky1":"#1c8a92","ground":"#08323c","line":"#2bb6a8","ob":"#ff7a59","fly":"#ff5fae","accent":"#ffe08a","star":false,"parallax":"waves","obStyle":"coral","flyStyle":"jelly"},
-  {"id":"reef-coralthorn","name":"Coralthorn Drift","region":"Sunken Reef","tier":7,"sky0":"#114a5e","sky1":"#1f7f96","ground":"#0a2c3a","line":"#34c0c8","ob":"#ff6b6b","fly":"#b07cff","accent":"#ffd166","star":false,"parallax":"crystals","obStyle":"coral","flyStyle":"jelly"},
-  {"id":"reef-anemonegarden","name":"Anemone Garden","region":"Sunken Reef","tier":7,"sky0":"#0f5566","sky1":"#259a9a","ground":"#0a3340","line":"#38c7b6","ob":"#ff9f1c","fly":"#ff5d8f","accent":"#f7f7c8","star":false,"parallax":"waves","obStyle":"spike","flyStyle":"jelly"},
-  {"id":"reef-kelpmaw","name":"Kelp Maw","region":"Sunken Reef","tier":7,"sky0":"#0c4a4a","sky1":"#1d8076","ground":"#07302e","line":"#4fb98a","ob":"#b6e63e","fly":"#ffce3a","accent":"#ff7e5f","star":false,"parallax":"bamboo","obStyle":"vine","flyStyle":"leaf"},
-  {"id":"reef-pearlhollow","name":"Pearl Hollow","region":"Sunken Reef","tier":7,"sky0":"#0a3a4a","sky1":"#155f70","ground":"#06222c","line":"#2aa0a8","ob":"#e8b4ff","fly":"#7fffd4","accent":"#ffd9f0","star":true,"parallax":"caverns","obStyle":"rock","flyStyle":"ghost"},
-  {"id":"reef-abyssbloom","name":"Abyss Bloom","region":"Sunken Reef","tier":7,"sky0":"#041e2e","sky1":"#0b4a5e","ground":"#020f18","line":"#1f8a96","ob":"#2ef2d4","fly":"#ff5fd2","accent":"#b8ff5f","star":true,"parallax":"space","obStyle":"crystal","flyStyle":"jelly"},
-  {"id":"reef-sunkenidol","name":"Sunken Idol","region":"Sunken Reef","tier":7,"sky0":"#0e4452","sky1":"#1c7a7e","ground":"#093036","line":"#3aa890","ob":"#ffb347","fly":"#ff6f91","accent":"#ffe7a0","star":false,"parallax":"ruins","obStyle":"totem","flyStyle":"bat"},
-  {"id":"reef-brinepillars","name":"Brine Pillars","region":"Sunken Reef","tier":7,"sky0":"#0d4858","sky1":"#1b8392","ground":"#082a34","line":"#2fb2b0","ob":"#ff8552","fly":"#b58cff","accent":"#f5ff8f","star":false,"parallax":"mountains","obStyle":"pillar","flyStyle":"drone"},
-  {"id":"reef-glasslagoon","name":"Glass Lagoon","region":"Sunken Reef","tier":7,"sky0":"#126476","sky1":"#28a7ad","ground":"#0b3641","line":"#44d0c4","ob":"#ff5c7a","fly":"#ffd23f","accent":"#9b5fff","star":false,"parallax":"waves","obStyle":"shard","flyStyle":"jelly"},
-  {"id":"reef-mantatrench","name":"Manta Trench","region":"Sunken Reef","tier":7,"sky0":"#0a3848","sky1":"#134f5e","ground":"#07232c","line":"#1f8e94","ob":"#eaf7ff","fly":"#7a5cff","accent":"#ff5fa0","star":false,"parallax":"dunes","obStyle":"tooth","flyStyle":"bat"},
-  {"id":"mesa-goldenveil","name":"Golden Veil","region":"Dust Mesa","tier":8,"sky0":"#5d4378","sky1":"#f2a95e","ground":"#6f3527","line":"#99492d","ob":"#2b1420","fly":"#ffe2ab","accent":"#ff7e3a","star":false,"parallax":"dunes","obStyle":"rock","flyStyle":"bird"},
-  {"id":"mesa-coppergale","name":"Copper Gale","region":"Dust Mesa","tier":8,"sky0":"#4a3866","sky1":"#e3924a","ground":"#6a3324","line":"#92452b","ob":"#241522","fly":"#f6d49b","accent":"#34c0b0","star":false,"parallax":"mountains","obStyle":"spike","flyStyle":"bird"},
-  {"id":"mesa-roseflare","name":"Rose Flare","region":"Dust Mesa","tier":8,"sky0":"#533a6e","sky1":"#ef9d77","ground":"#6d3330","line":"#9a4640","ob":"#2a1422","fly":"#ffd9c2","accent":"#ff6f9a","star":false,"parallax":"ruins","obStyle":"totem","flyStyle":"bat"},
-  {"id":"mesa-smokereach","name":"Smoke Reach","region":"Dust Mesa","tier":8,"sky0":"#46314f","sky1":"#db7038","ground":"#5e2c22","line":"#863a28","ob":"#1f1019","fly":"#f4c58a","accent":"#ff944d","star":false,"parallax":"dunes","obStyle":"rock","flyStyle":"leaf"},
-  {"id":"mesa-twilightspire","name":"Twilight Spire","region":"Dust Mesa","tier":8,"sky0":"#2a2150","sky1":"#b8624f","ground":"#532a2a","line":"#7a3d36","ob":"#d9a36a","fly":"#ffe6c0","accent":"#ffd166","star":true,"parallax":"crystals","obStyle":"shard","flyStyle":"bird"},
-  {"id":"mesa-crimsonmaw","name":"Crimson Maw","region":"Dust Mesa","tier":8,"sky0":"#3a1530","sky1":"#cf3b2e","ground":"#5a201f","line":"#8a2f28","ob":"#1a0a14","fly":"#f6c7a8","accent":"#ff5a3c","star":false,"parallax":"caverns","obStyle":"pylon","flyStyle":"bat"},
-  {"id":"mesa-emberhollow","name":"Ember Hollow","region":"Dust Mesa","tier":8,"sky0":"#20193f","sky1":"#8a3f4a","ground":"#461f24","line":"#6e3330","ob":"#caa06a","fly":"#c8d3ec","accent":"#ff7a4a","star":true,"parallax":"dunes","obStyle":"rock","flyStyle":"drone"},
-  {"id":"mesa-stormbluff","name":"Storm Bluff","region":"Dust Mesa","tier":8,"sky0":"#34303f","sky1":"#7d5a5a","ground":"#4d3530","line":"#6f4a40","ob":"#1c1820","fly":"#e8ddc8","accent":"#ff6b35","star":false,"parallax":"mountains","obStyle":"tooth","flyStyle":"bird"},
-  {"id":"mesa-violethush","name":"Violet Hush","region":"Dust Mesa","tier":8,"sky0":"#241236","sky1":"#5e2a5a","ground":"#3c1d33","line":"#5e2f47","ob":"#cf9a86","fly":"#c9a8e6","accent":"#4be0c4","star":true,"parallax":"aurora","obStyle":"crystal","flyStyle":"ghost"},
-  {"id":"mesa-lastlight","name":"Last Light","region":"Dust Mesa","tier":8,"sky0":"#160a1e","sky1":"#4a1830","ground":"#2e1320","line":"#5a2230","ob":"#b87850","fly":"#e8c9a0","accent":"#ff3d5a","star":true,"parallax":"space","obStyle":"pillar","flyStyle":"bird"},
-  {"id":"foundry-emberforge-hollow","name":"Emberforge Hollow","region":"Iron Foundry","tier":9,"sky0":"#1b1310","sky1":"#7a2e10","ground":"#211915","line":"#5c3826","ob":"#ff7a1f","fly":"#ffc46e","accent":"#ffe49a","star":false,"parallax":"factory","obStyle":"gear","flyStyle":"drone"},
-  {"id":"foundry-molten-spillway","name":"Molten Spillway","region":"Iron Foundry","tier":9,"sky0":"#160d0c","sky1":"#8c2406","ground":"#1c1310","line":"#6b2c12","ob":"#ff5a22","fly":"#ffb070","accent":"#ffd24a","star":false,"parallax":"lava","obStyle":"anvil","flyStyle":"drone"},
-  {"id":"foundry-cinder-gantry","name":"Cinder Gantry","region":"Iron Foundry","tier":9,"sky0":"#211a22","sky1":"#5a3340","ground":"#1e1a1d","line":"#4a3d44","ob":"#ff8a3d","fly":"#c9d4e0","accent":"#ffd86b","star":false,"parallax":"factory","obStyle":"drum","flyStyle":"bat"},
-  {"id":"foundry-rivet-skyline","name":"Rivet Skyline","region":"Iron Foundry","tier":9,"sky0":"#241a1c","sky1":"#9c4a22","ground":"#20181a","line":"#51372e","ob":"#ffae3c","fly":"#6fd0ff","accent":"#fff0b0","star":false,"parallax":"city","obStyle":"pylon","flyStyle":"drone"},
-  {"id":"foundry-slag-caverns","name":"Slag Caverns","region":"Iron Foundry","tier":9,"sky0":"#0d0a12","sky1":"#3a1410","ground":"#15100f","line":"#4a2418","ob":"#ff6a28","fly":"#d8b8ff","accent":"#ffd070","star":true,"parallax":"caverns","obStyle":"barrel","flyStyle":"ghost"},
-  {"id":"foundry-blastfurnace-run","name":"Blastfurnace Run","region":"Iron Foundry","tier":9,"sky0":"#1a1009","sky1":"#a83c08","ground":"#1f1410","line":"#5e3214","ob":"#ffd23a","fly":"#5fd8ff","accent":"#fff4c0","star":false,"parallax":"factory","obStyle":"gear","flyStyle":"drone"},
-  {"id":"foundry-ashfall-ruins","name":"Ashfall Ruins","region":"Iron Foundry","tier":9,"sky0":"#1c1718","sky1":"#4e2a26","ground":"#1a1614","line":"#463733","ob":"#ff9540","fly":"#e6ccae","accent":"#ffdf8e","star":false,"parallax":"ruins","obStyle":"slab","flyStyle":"drone"},
-  {"id":"foundry-iron-spine","name":"Iron Spine","region":"Iron Foundry","tier":9,"sky0":"#181b1f","sky1":"#6a3a2a","ground":"#15171a","line":"#3c4248","ob":"#ff8838","fly":"#b9c6d4","accent":"#ffd76a","star":false,"parallax":"mountains","obStyle":"spike","flyStyle":"bat"},
-  {"id":"foundry-forgeheart-core","name":"Forgeheart Core","region":"Iron Foundry","tier":9,"sky0":"#160b0a","sky1":"#b32a04","ground":"#1c0f0c","line":"#5c2410","ob":"#ff8a1c","fly":"#ffcf6a","accent":"#fff2c4","star":false,"parallax":"factory","obStyle":"gear","flyStyle":"drone"},
-  {"id":"foundry-crucible-overflow","name":"Crucible Overflow","region":"Iron Foundry","tier":9,"sky0":"#14090a","sky1":"#c81f04","ground":"#1a0d0c","line":"#62200e","ob":"#ffd33a","fly":"#7fe0c8","accent":"#fff6d2","star":false,"parallax":"lava","obStyle":"pillar","flyStyle":"jelly"},
-  {"id":"spire-voidcrown","name":"Voidcrown","region":"Celestial Spire","tier":10,"sky0":"#0a0418","sky1":"#2a0f4a","ground":"#120726","line":"#7b3fe4","ob":"#36e0ff","fly":"#ff5ed6","accent":"#fff3a8","star":true,"parallax":"space","obStyle":"crystal","flyStyle":"ghost"},
-  {"id":"spire-aurora-veil","name":"Aurora Veil","region":"Celestial Spire","tier":10,"sky0":"#03121a","sky1":"#0a2a3a","ground":"#06151f","line":"#ff7be5","ob":"#7dffb4","fly":"#b98cff","accent":"#eafff6","star":true,"parallax":"aurora","obStyle":"shard","flyStyle":"jelly"},
-  {"id":"spire-starforge","name":"Starforge","region":"Celestial Spire","tier":10,"sky0":"#140316","sky1":"#4a0f2e","ground":"#1a0712","line":"#ff6a3d","ob":"#ffb627","fly":"#ff4fa3","accent":"#fff0c2","star":true,"parallax":"space","obStyle":"crystal","flyStyle":"drone"},
-  {"id":"spire-glass-nebula","name":"Glass Nebula","region":"Celestial Spire","tier":10,"sky0":"#06091f","sky1":"#161a52","ground":"#0a0c26","line":"#5566ff","ob":"#9be8ff","fly":"#d6a3ff","accent":"#ffffff","star":true,"parallax":"crystals","obStyle":"ice","flyStyle":"ghost"},
-  {"id":"spire-cometfall","name":"Cometfall","region":"Celestial Spire","tier":10,"sky0":"#04071c","sky1":"#0d2050","ground":"#07112e","line":"#2f6dff","ob":"#c8f6ff","fly":"#ffd23f","accent":"#79f0ff","star":true,"parallax":"space","obStyle":"shard","flyStyle":"drone"},
-  {"id":"spire-eventide-rim","name":"Eventide Rim","region":"Celestial Spire","tier":10,"sky0":"#0c0316","sky1":"#5a1830","ground":"#120519","line":"#ff8a3d","ob":"#ffc14d","fly":"#b46bff","accent":"#ffe9c2","star":true,"parallax":"space","obStyle":"pylon","flyStyle":"ghost"},
-  {"id":"spire-frozen-orbit","name":"Frozen Orbit","region":"Celestial Spire","tier":10,"sky0":"#04101c","sky1":"#0c2e44","ground":"#06182a","line":"#4fd0ff","ob":"#aef2ff","fly":"#8fb8ff","accent":"#ffffff","star":true,"parallax":"crystals","obStyle":"ice","flyStyle":"jelly"},
-  {"id":"spire-celestine-keep","name":"Celestine Keep","region":"Celestial Spire","tier":10,"sky0":"#0a0520","sky1":"#2c1456","ground":"#0f0a2c","line":"#8a6bff","ob":"#ffd166","fly":"#6be0ff","accent":"#fff3cf","star":true,"parallax":"ruins","obStyle":"totem","flyStyle":"ghost"},
-  {"id":"spire-nebular-deep","name":"Nebular Deep","region":"Celestial Spire","tier":10,"sky0":"#05030f","sky1":"#1b0a3a","ground":"#0a0518","line":"#6a2fd0","ob":"#36ffd0","fly":"#ff79c6","accent":"#c8a8ff","star":true,"parallax":"caverns","obStyle":"crystal","flyStyle":"bat"},
-  {"id":"spire-zenith-throne","name":"Zenith Throne","region":"Celestial Spire","tier":10,"sky0":"#060311","sky1":"#3a0c5e","ground":"#0c0420","line":"#ff3cac","ob":"#00f0ff","fly":"#ffd23f","accent":"#ffffff","star":true,"parallax":"space","obStyle":"crystal","flyStyle":"ghost"}
+  {"id":"meadow-dewspring-morning","name":"Dewspring Morning","region":"Verdant Meadows","tier":1,"sky0":"#ffcfa0","sky1":"#fff1da","skyGlow":"#ffb578","ground":"#8ed06a","ground2":"#77bd54","line":"#5aa23e","ob":"#7c4a26","obEdge":"#2a1408","fly":"#3a5f86","accent":"#ffd23a","fog":"#ffe3cb","star":false,"parallax":"hills","obStyle":"stump","flyStyle":"bird","weather":"mist","decor":"flowers","timeOfDay":"dawn"},
+  {"id":"meadow-cornflower-noon","name":"Cornflower Noon","region":"Verdant Meadows","tier":1,"sky0":"#4fb4ff","sky1":"#c4ebff","skyGlow":"#fff2bf","ground":"#82cd56","ground2":"#6cba46","line":"#54a040","ob":"#6e3f22","obEdge":"#1c0f06","fly":"#d9482e","accent":"#ffe14a","fog":"#d6ecff","star":false,"parallax":"clouds","obStyle":"mound","flyStyle":"bird","weather":"petals","decor":"grass","timeOfDay":"day"},
+  {"id":"meadow-honeyhush-glade","name":"Honeyhush Glade","region":"Verdant Meadows","tier":1,"sky0":"#ffe39a","sky1":"#fff6d4","skyGlow":"#ffcf66","ground":"#9bce5a","ground2":"#84ba46","line":"#6ba33c","ob":"#2f6e4a","obEdge":"#0f2c1b","fly":"#b5471f","accent":"#ff9d3a","fog":"#ffeec6","star":false,"parallax":"trees","obStyle":"bush","flyStyle":"leaf","weather":"leaves","decor":"mushrooms","timeOfDay":"day"},
+  {"id":"meadow-brookmint-hollow","name":"Brookmint Hollow","region":"Verdant Meadows","tier":1,"sky0":"#79dccf","sky1":"#e0faf4","skyGlow":"#c7f0e0","ground":"#6fc474","ground2":"#58a85e","line":"#46924f","ob":"#6f6a60","obEdge":"#16130f","fly":"#e07a2a","accent":"#ffd84a","fog":"#d6f3ec","star":false,"parallax":"waves","obStyle":"rock","flyStyle":"bird","weather":"bubbles","decor":"reeds","timeOfDay":"day"},
+  {"id":"meadow-violet-vesper-vale","name":"Violet Vesper Vale","region":"Verdant Meadows","tier":1,"sky0":"#6a5a9e","sky1":"#f0a6b0","skyGlow":"#ffc98a","ground":"#5a8a5e","ground2":"#497a4f","line":"#335f3d","ob":"#c98a4a","obEdge":"#2a1c10","fly":"#2fc7b8","accent":"#ffb45a","fog":"#c9a6c0","star":true,"parallax":"mountains","obStyle":"slab","flyStyle":"bird","weather":"fog","decor":"rocks","timeOfDay":"dusk"},
+  {"id":"meadow-petalwhirl-plains","name":"Petalwhirl Plains","region":"Verdant Meadows","tier":1,"sky0":"#ffc1e0","sky1":"#fff0f6","skyGlow":"#fff0b0","ground":"#88d067","ground2":"#71bd52","line":"#58a244","ob":"#6e4324","obEdge":"#1c0e06","fly":"#3f6a8f","accent":"#ff5fa0","fog":"#ffe0ee","star":false,"parallax":"dunes","obStyle":"sprout","flyStyle":"leaf","weather":"sparkles","decor":"pebbles","timeOfDay":"day"},
+  {"id":"meadow-mistmint-reverie","name":"Mistmint Reverie","region":"Verdant Meadows","tier":1,"sky0":"#cfe9d4","sky1":"#fbf6db","skyGlow":"#ffe49c","ground":"#7cc066","ground2":"#67ac52","line":"#4f9540","ob":"#d99a2e","obEdge":"#2a1a08","fly":"#355a7a","accent":"#ffd166","fog":"#e2f0e0","star":false,"parallax":"bamboo","obStyle":"hive","flyStyle":"bird","weather":"rain","decor":"flowers","timeOfDay":"dawn"},
+  {"id":"meadow-moonpetal-nocturne","name":"Moonpetal Nocturne","region":"Verdant Meadows","tier":1,"sky0":"#141a3e","sky1":"#2c2f6a","skyGlow":"#5a6ab0","ground":"#294a3e","ground2":"#1f3a32","line":"#3a6a54","ob":"#ffd35e","obEdge":"#fff0c0","fly":"#b8e0ff","accent":"#8df0c8","fog":"#2a2f5e","star":true,"parallax":"aurora","obStyle":"lantern","flyStyle":"ghost","weather":"fireflies","decor":"lanterns","timeOfDay":"night"},
+  {"id":"meadow-amberfall-twilight","name":"Amberfall Twilight","region":"Verdant Meadows","tier":1,"sky0":"#7a4a6a","sky1":"#ff9a4a","skyGlow":"#ffc25e","ground":"#6a7a42","ground2":"#586a36","line":"#3f4f26","ob":"#3a4a5e","obEdge":"#131d29","fly":"#1f1730","accent":"#ffd24a","fog":"#c08a6a","star":true,"parallax":"ruins","obStyle":"totem","flyStyle":"bat","weather":"embers","decor":"grass","timeOfDay":"dusk"},
+  {"id":"meadow-cloverwind-crossing","name":"Cloverwind Crossing","region":"Verdant Meadows","tier":1,"sky0":"#a6e6c4","sky1":"#eafbef","skyGlow":"#fff3c0","ground":"#4fab5a","ground2":"#3d9249","line":"#2c6f37","ob":"#7a4f2c","obEdge":"#201106","fly":"#c9622e","accent":"#ffe05a","fog":"#d6f0dc","star":false,"parallax":"mushrooms","obStyle":"fence","flyStyle":"leaf","weather":"none","decor":"flowers","timeOfDay":"day"},
+  {"id":"candy-sherbet-shallows","name":"Sherbet Shallows","region":"Candy Coast","tier":2,"sky0":"#9fe9e0","sky1":"#e8fcf7","skyGlow":"#fff2c4","ground":"#ffe1ab","ground2":"#ffcd84","line":"#db9646","ob":"#e6356f","obEdge":"#221024","fly":"#6a32d6","accent":"#ffd23f","fog":"#cfeee9","star":false,"parallax":"waves","obStyle":"buoy","flyStyle":"jelly","weather":"bubbles","decor":"coral","timeOfDay":"day"},
+  {"id":"candy-bubblegum-boardwalk","name":"Bubblegum Boardwalk","region":"Candy Coast","tier":2,"sky0":"#ffc6e4","sky1":"#ffeef6","skyGlow":"#fff4d4","ground":"#bdeede","ground2":"#99dfcb","line":"#5fc1a3","ob":"#7322be","obEdge":"#1d0a2c","fly":"#2f6bff","accent":"#ffd84a","fog":"#f6d6e7","star":false,"parallax":"candy","obStyle":"gumdrop","flyStyle":"leaf","weather":"petals","decor":"flowers","timeOfDay":"day"},
+  {"id":"candy-lemon-drop-dunes","name":"Lemon Drop Dunes","region":"Candy Coast","tier":2,"sky0":"#bfe8ff","sky1":"#ecfaff","skyGlow":"#fff0ac","ground":"#ffe85f","ground2":"#ffd534","line":"#dca528","ob":"#c52890","obEdge":"#1f1026","fly":"#ff5a2e","accent":"#ff4f8f","fog":"#dceef4","star":false,"parallax":"dunes","obStyle":"barrel","flyStyle":"drone","weather":"sparkles","decor":"pebbles","timeOfDay":"day"},
+  {"id":"candy-lavender-lollipop-bluffs","name":"Lavender Lollipop Bluffs","region":"Candy Coast","tier":2,"sky0":"#c9a9f0","sky1":"#ffd0e6","skyGlow":"#ffd89a","ground":"#efe2fb","ground2":"#d8c2f0","line":"#a87fd0","ob":"#15a39a","obEdge":"#201233","fly":"#ff5fa8","accent":"#ffd23f","fog":"#d8c4ec","star":true,"parallax":"crystals","obStyle":"crystal","flyStyle":"jelly","weather":"fireflies","decor":"crystals","timeOfDay":"dusk"},
+  {"id":"candy-caramel-cream-cove","name":"Caramel Cream Cove","region":"Candy Coast","tier":2,"sky0":"#ffd6a0","sky1":"#fff0d2","skyGlow":"#ffb86a","ground":"#f4e2c2","ground2":"#e6cb9a","line":"#c39e5e","ob":"#b32a5f","obEdge":"#1f0c18","fly":"#3f6fd6","accent":"#ff7a3c","fog":"#f1ddc0","star":false,"parallax":"hills","obStyle":"mound","flyStyle":"bird","weather":"mist","decor":"reeds","timeOfDay":"dawn"},
+  {"id":"candy-spearmint-strand","name":"Spearmint Strand","region":"Candy Coast","tier":2,"sky0":"#aef0d8","sky1":"#effff7","skyGlow":"#fff3c0","ground":"#ffd9ec","ground2":"#ffbfdd","line":"#e288b4","ob":"#4a2a16","obEdge":"#120a05","fly":"#ff4f6e","accent":"#ffd84a","fog":"#d4f0e0","star":false,"parallax":"mushrooms","obStyle":"mushroom","flyStyle":"leaf","weather":"none","decor":"mushrooms","timeOfDay":"day"},
+  {"id":"candy-midnight-marshmallow","name":"Midnight Marshmallow","region":"Candy Coast","tier":2,"sky0":"#201a52","sky1":"#4a3a86","skyGlow":"#7e5ab0","ground":"#3a3568","ground2":"#2c2850","line":"#6a5fb0","ob":"#ff7ac2","obEdge":"#fff0fb","fly":"#6affd8","accent":"#ffe15c","fog":"#2a2458","star":true,"parallax":"aurora","obStyle":"lantern","flyStyle":"ghost","weather":"snow","decor":"lanterns","timeOfDay":"night"},
+  {"id":"candy-peach-fizz-morning","name":"Peach Fizz Morning","region":"Candy Coast","tier":2,"sky0":"#ffd0b0","sky1":"#fff0e0","skyGlow":"#ffb27a","ground":"#cdeef0","ground2":"#a9e0e4","line":"#6cc1c6","ob":"#d62f7a","obEdge":"#1f0c18","fly":"#3f63d6","accent":"#ffcf3d","fog":"#ffe0cf","star":false,"parallax":"clouds","obStyle":"hive","flyStyle":"bird","weather":"fog","decor":"none","timeOfDay":"dawn"},
+  {"id":"candy-sugarcube-skyline","name":"Sugarcube Skyline","region":"Candy Coast","tier":2,"sky0":"#8a6fd8","sky1":"#ffaecf","skyGlow":"#ffc77a","ground":"#d8c6f0","ground2":"#c2aae4","line":"#8f6fc0","ob":"#c95a1e","obEdge":"#1c0c06","fly":"#1fd6c0","accent":"#ffe15c","fog":"#c9b6ea","star":true,"parallax":"city","obStyle":"brick","flyStyle":"bat","weather":"rain","decor":"rocks","timeOfDay":"dusk"},
+  {"id":"candy-peppermint-twist-nocturne","name":"Peppermint Twist Nocturne","region":"Candy Coast","tier":2,"sky0":"#14122e","sky1":"#2e2350","skyGlow":"#5a3f86","ground":"#bcd8cd","ground2":"#9dbfb2","line":"#6f968a","ob":"#ff3b5c","obEdge":"#fff2f5","fly":"#74f0d8","accent":"#ffe15c","fog":"#221d44","star":true,"parallax":"bamboo","obStyle":"pillar","flyStyle":"ghost","weather":"leaves","decor":"grass","timeOfDay":"night"},
+  {"id":"forest-mistwake-hollow","name":"Mistwake Hollow","region":"Deep Forest","tier":3,"sky0":"#cfe3d2","sky1":"#f4e7d4","skyGlow":"#ffd8a6","ground":"#6f9d72","ground2":"#5d8862","line":"#41663f","ob":"#4f3724","obEdge":"#1d130b","fly":"#d2622c","accent":"#ffd28a","fog":"#d9e6dc","star":false,"parallax":"trees","obStyle":"stump","flyStyle":"leaf","weather":"mist","decor":"reeds","timeOfDay":"dawn"},
+  {"id":"forest-verdant-crown","name":"Verdant Crown","region":"Deep Forest","tier":3,"sky0":"#74c8ee","sky1":"#cdeedd","skyGlow":"#f4ffce","ground":"#3f9c5b","ground2":"#347e4b","line":"#205436","ob":"#5b3a20","obEdge":"#170f08","fly":"#e44e2c","accent":"#eaff79","fog":"#b9e4dd","star":false,"parallax":"hills","obStyle":"pillar","flyStyle":"bird","weather":"leaves","decor":"grass","timeOfDay":"day"},
+  {"id":"forest-fernspring-reach","name":"Fernspring Reach","region":"Deep Forest","tier":3,"sky0":"#aee2a0","sky1":"#e9f6c0","skyGlow":"#fff4b0","ground":"#7cb84a","ground2":"#66a03b","line":"#45712a","ob":"#6a4226","obEdge":"#20140a","fly":"#d64b86","accent":"#fff06a","fog":"#d6ecc2","star":false,"parallax":"bamboo","obStyle":"sprout","flyStyle":"leaf","weather":"petals","decor":"flowers","timeOfDay":"day"},
+  {"id":"forest-emberleaf-canopy","name":"Emberleaf Canopy","region":"Deep Forest","tier":3,"sky0":"#2f4a3a","sky1":"#e98a3c","skyGlow":"#ffd277","ground":"#3e6440","ground2":"#314f34","line":"#1d3320","ob":"#4a3320","obEdge":"#ffe3a8","fly":"#7fe6c4","accent":"#ff8a3a","fog":"#6a5240","star":true,"parallax":"trees","obStyle":"mound","flyStyle":"bat","weather":"embers","decor":"mushrooms","timeOfDay":"dusk"},
+  {"id":"forest-glowspore-deep","name":"Glowspore Deep","region":"Deep Forest","tier":3,"sky0":"#07181c","sky1":"#0e3338","skyGlow":"#1f6f63","ground":"#103a33","ground2":"#0c2c28","line":"#2f8f7a","ob":"#b94fd6","obEdge":"#f0d6ff","fly":"#6ff0e0","accent":"#8af0d0","fog":"#0e2a2a","star":true,"parallax":"mushrooms","obStyle":"mushroom","flyStyle":"jelly","weather":"sparkles","decor":"crystals","timeOfDay":"night"},
+  {"id":"forest-moonlit-thicket","name":"Moonlit Thicket","region":"Deep Forest","tier":3,"sky0":"#0b1430","sky1":"#1d3460","skyGlow":"#6f86c4","ground":"#16253f","ground2":"#101c30","line":"#3a5a86","ob":"#6a4a32","obEdge":"#ffe9c4","fly":"#d8e4ff","accent":"#ffd97a","fog":"#18253f","star":true,"parallax":"trees","obStyle":"totem","flyStyle":"ghost","weather":"fireflies","decor":"lanterns","timeOfDay":"night"},
+  {"id":"forest-rosewood-dawn","name":"Rosewood Dawn","region":"Deep Forest","tier":3,"sky0":"#f6c9d4","sky1":"#ffe6d2","skyGlow":"#ffcf9e","ground":"#6a9a6e","ground2":"#58855e","line":"#3c6440","ob":"#4a3326","obEdge":"#1c120b","fly":"#2f7a6a","accent":"#ff9ec0","fog":"#f1dad9","star":false,"parallax":"bamboo","obStyle":"bush","flyStyle":"bird","weather":"fog","decor":"pebbles","timeOfDay":"dawn"},
+  {"id":"forest-ruinmoss-hush","name":"Ruinmoss Hush","region":"Deep Forest","tier":3,"sky0":"#97b0a6","sky1":"#c2d2c6","skyGlow":"#d8e0cf","ground":"#3f6e54","ground2":"#335a45","line":"#1f3e2e","ob":"#6a6256","obEdge":"#181d18","fly":"#e0883a","accent":"#8fe0a8","fog":"#b6c8bd","star":false,"parallax":"ruins","obStyle":"slab","flyStyle":"leaf","weather":"rain","decor":"rocks","timeOfDay":"day"},
+  {"id":"forest-violet-underbrush","name":"Violet Underbrush","region":"Deep Forest","tier":3,"sky0":"#2a1840","sky1":"#6e3a72","skyGlow":"#d98ab0","ground":"#2e2440","ground2":"#241a33","line":"#5a3f6e","ob":"#84b23f","obEdge":"#eef0c8","fly":"#ff9a4a","accent":"#c77fff","fog":"#2a2038","star":true,"parallax":"mushrooms","obStyle":"vine","flyStyle":"bat","weather":"leaves","decor":"bones","timeOfDay":"dusk"},
+  {"id":"forest-goldbark-stand","name":"Goldbark Stand","region":"Deep Forest","tier":3,"sky0":"#f5d27a","sky1":"#fff0c2","skyGlow":"#ffdf8e","ground":"#6f9442","ground2":"#5b7d34","line":"#3f5a22","ob":"#4a3a1e","obEdge":"#181006","fly":"#2f6f9a","accent":"#c4e85a","fog":"#ecdcb0","star":false,"parallax":"hills","obStyle":"fence","flyStyle":"bird","weather":"none","decor":"none","timeOfDay":"day"},
+  {"id":"synth-neon-rainfront","name":"Neon Rainfront","region":"Synthwave Grid","tier":4,"sky0":"#160a36","sky1":"#6a1466","skyGlow":"#ff3ea0","ground":"#0a0418","ground2":"#170a2c","line":"#ff43c8","ob":"#18e6ff","obEdge":"#d6fbff","fly":"#ffe14c","accent":"#ff7ad0","fog":"#3a1a55","star":true,"parallax":"grid","obStyle":"neon","flyStyle":"drone","weather":"rain","decor":"pebbles","timeOfDay":"night"},
+  {"id":"synth-mirrorsea-dusk","name":"Mirrorsea Dusk","region":"Synthwave Grid","tier":4,"sky0":"#1a2a55","sky1":"#2f7d9e","skyGlow":"#ff8ab0","ground":"#06141c","ground2":"#0e2430","line":"#2fffe0","ob":"#ff3c9e","obEdge":"#ffe0f2","fly":"#ffe14c","accent":"#5cf0ff","fog":"#244a5a","star":true,"parallax":"waves","obStyle":"pylon","flyStyle":"jelly","weather":"mist","decor":"coral","timeOfDay":"dusk"},
+  {"id":"synth-chromedawn-mesa","name":"Chromedawn Mesa","region":"Synthwave Grid","tier":4,"sky0":"#3a1a52","sky1":"#ff9a5c","skyGlow":"#ffd06a","ground":"#1a0a22","ground2":"#2a1230","line":"#ff5ca0","ob":"#15d6ff","obEdge":"#2a0e3a","fly":"#ff2f8e","accent":"#ffe27a","fog":"#6a3a5a","star":false,"parallax":"dunes","obStyle":"crystal","flyStyle":"bird","weather":"sparkles","decor":"rocks","timeOfDay":"dawn"},
+  {"id":"synth-skyline-voltage","name":"Skyline Voltage","region":"Synthwave Grid","tier":4,"sky0":"#1d0a40","sky1":"#5a1a8a","skyGlow":"#c04cff","ground":"#0a041c","ground2":"#160828","line":"#1fe6ff","ob":"#ffcf2e","obEdge":"#fff2c0","fly":"#2fe6ff","accent":"#ff5fb0","fog":"#2e1450","star":true,"parallax":"city","obStyle":"slab","flyStyle":"bat","weather":"fog","decor":"lanterns","timeOfDay":"night"},
+  {"id":"synth-pastel-overclock","name":"Pastel Overclock","region":"Synthwave Grid","tier":4,"sky0":"#7fe0ff","sky1":"#ffd0ec","skyGlow":"#fff0b0","ground":"#2fb6c4","ground2":"#3fd0d6","line":"#ff3ca0","ob":"#d61f86","obEdge":"#2a0a1e","fly":"#6a1fb0","accent":"#ffe14c","fog":"#d6eef5","star":false,"parallax":"clouds","obStyle":"pillar","flyStyle":"jelly","weather":"bubbles","decor":"flowers","timeOfDay":"day"},
+  {"id":"synth-aurora-cascade","name":"Aurora Cascade","region":"Synthwave Grid","tier":4,"sky0":"#0e1240","sky1":"#15506a","skyGlow":"#3fffb0","ground":"#050a1c","ground2":"#0c1630","line":"#4fffc0","ob":"#ff2f9e","obEdge":"#ffe0f2","fly":"#b06cff","accent":"#6effc8","fog":"#143048","star":true,"parallax":"aurora","obStyle":"shard","flyStyle":"ghost","weather":"fireflies","decor":"crystals","timeOfDay":"night"},
+  {"id":"synth-vapor-ruins","name":"Vapor Ruins Dusk","region":"Synthwave Grid","tier":4,"sky0":"#2a1a4a","sky1":"#d97a8a","skyGlow":"#5fd0c0","ground":"#100a22","ground2":"#1c1430","line":"#2fe0c4","ob":"#ffd84a","obEdge":"#fff4d6","fly":"#3fe6ff","accent":"#ff8ab0","fog":"#3a2a50","star":true,"parallax":"ruins","obStyle":"totem","flyStyle":"ghost","weather":"ash","decor":"bones","timeOfDay":"dusk"},
+  {"id":"synth-crystal-frequency","name":"Crystal Frequency","region":"Synthwave Grid","tier":4,"sky0":"#200a44","sky1":"#7a1f9e","skyGlow":"#ff4cc0","ground":"#0c0420","ground2":"#1a0a30","line":"#c04cff","ob":"#b6ff3a","obEdge":"#f0ffd6","fly":"#2fe6ff","accent":"#ff6ad0","fog":"#341255","star":true,"parallax":"crystals","obStyle":"lantern","flyStyle":"drone","weather":"snow","decor":"grass","timeOfDay":"night"},
+  {"id":"synth-starlit-outrun","name":"Starlit Outrun","region":"Synthwave Grid","tier":4,"sky0":"#080820","sky1":"#2a1a6a","skyGlow":"#d63ca0","ground":"#05040f","ground2":"#100a24","line":"#1fe6ff","ob":"#ff2f9e","obEdge":"#ffe0f4","fly":"#5cf0ff","accent":"#ffd84a","fog":"#1a1240","star":true,"parallax":"space","obStyle":"drum","flyStyle":"bat","weather":"embers","decor":"gears","timeOfDay":"night"},
+  {"id":"synth-sunset-overdrive","name":"Sunset Overdrive","region":"Synthwave Grid","tier":4,"sky0":"#2e1050","sky1":"#ff6a5c","skyGlow":"#ffc24a","ground":"#140626","ground2":"#220a36","line":"#ff4ca0","ob":"#1fd6ff","obEdge":"#1a0830","fly":"#ff2f8e","accent":"#ffe27a","fog":"#4a1f52","star":false,"parallax":"mountains","obStyle":"spike","flyStyle":"drone","weather":"none","decor":"reeds","timeOfDay":"dusk"},
+  {"id":"frost-alpenglow-reveille","name":"Alpenglow Reveille","region":"Frostpeak","tier":5,"sky0":"#9fb4e8","sky1":"#ffd2b0","skyGlow":"#ffb98a","ground":"#eaf1fb","ground2":"#d4e2f2","line":"#b3c8de","ob":"#7e6a92","obEdge":"#2b2440","fly":"#4a5e86","accent":"#ffc46b","fog":"#e7d3d0","star":false,"parallax":"mountains","obStyle":"mound","flyStyle":"ghost","weather":"snow","decor":"pebbles","timeOfDay":"dawn"},
+  {"id":"frost-bluebird-bowl","name":"Bluebird Bowl","region":"Frostpeak","tier":5,"sky0":"#3da0e8","sky1":"#bfe6ff","skyGlow":"#fff6d8","ground":"#f2f8ff","ground2":"#d8e8f6","line":"#b2cee6","ob":"#7d5a3e","obEdge":"#241a12","fly":"#2a3a4a","accent":"#ffd84a","fog":"#d6ecfb","star":false,"parallax":"hills","obStyle":"rock","flyStyle":"bird","weather":"sparkles","decor":"rocks","timeOfDay":"day"},
+  {"id":"frost-aurora-vigil","name":"Aurora Vigil","region":"Frostpeak","tier":5,"sky0":"#0b1430","sky1":"#15324a","skyGlow":"#36a07a","ground":"#16233e","ground2":"#0e1830","line":"#2f8f7a","ob":"#6fc4f0","obEdge":"#eafdff","fly":"#c08bff","accent":"#6effc8","fog":"#14304a","star":true,"parallax":"aurora","obStyle":"crystal","flyStyle":"jelly","weather":"fireflies","decor":"crystals","timeOfDay":"night"},
+  {"id":"frost-rime-ruins","name":"Ruins of Rime","region":"Frostpeak","tier":5,"sky0":"#3a2350","sky1":"#b3567e","skyGlow":"#ff8fa6","ground":"#2e2742","ground2":"#423558","line":"#7a5e9a","ob":"#5ec7cf","obEdge":"#f0fbff","fly":"#bfe9dd","accent":"#ffc24a","fog":"#5a3f66","star":true,"parallax":"ruins","obStyle":"totem","flyStyle":"ghost","weather":"snow","decor":"lanterns","timeOfDay":"dusk"},
+  {"id":"frost-glacier-hollow","name":"Glacier Hollow","region":"Frostpeak","tier":5,"sky0":"#0e3344","sky1":"#1d5e6e","skyGlow":"#3fb0b0","ground":"#163f4c","ground2":"#0f2d38","line":"#3aa0a0","ob":"#8fe6ec","obEdge":"#f2ffff","fly":"#7fd0ff","accent":"#b8f5ec","fog":"#123842","star":true,"parallax":"caverns","obStyle":"ice","flyStyle":"bat","weather":"mist","decor":"bones","timeOfDay":"day"},
+  {"id":"frost-whiteout-howl","name":"Whiteout Howl","region":"Frostpeak","tier":5,"sky0":"#1d2c3e","sky1":"#46627e","skyGlow":"#7e98b0","ground":"#34495f","ground2":"#243648","line":"#5d7a96","ob":"#5a87a8","obEdge":"#e2f4ff","fly":"#cfe6f4","accent":"#bfe2f5","fog":"#5a7390","star":false,"parallax":"clouds","obStyle":"slab","flyStyle":"leaf","weather":"snow","decor":"none","timeOfDay":"night"},
+  {"id":"frost-frostmere-dawn","name":"Frostmere Dawn","region":"Frostpeak","tier":5,"sky0":"#b8d2d8","sky1":"#ffe7cf","skyGlow":"#ffd0a8","ground":"#d8ebee","ground2":"#bcd8dd","line":"#9ec3c8","ob":"#46768a","obEdge":"#16282f","fly":"#3a4a4e","accent":"#ffcaa0","fog":"#d2e0dd","star":false,"parallax":"waves","obStyle":"spike","flyStyle":"bird","weather":"fog","decor":"reeds","timeOfDay":"dawn"},
+  {"id":"frost-goldcrest-ridge","name":"Goldcrest Ridge","region":"Frostpeak","tier":5,"sky0":"#2b3f6e","sky1":"#ffb15e","skyGlow":"#ffd47a","ground":"#ecdcc0","ground2":"#cdbfd0","line":"#d6a86a","ob":"#5a6aa8","obEdge":"#1c1f3a","fly":"#c9b6ff","accent":"#ffd27a","fog":"#6a5a7e","star":true,"parallax":"mountains","obStyle":"shard","flyStyle":"drone","weather":"sparkles","decor":"grass","timeOfDay":"dusk"},
+  {"id":"frost-prismfall-grove","name":"Prismfall Grove","region":"Frostpeak","tier":5,"sky0":"#160a36","sky1":"#3a1f63","skyGlow":"#8a2fb0","ground":"#1c1140","ground2":"#2a1a52","line":"#46d0e0","ob":"#ff79d2","obEdge":"#ffe9f6","fly":"#4fe0ff","accent":"#5cf0d8","fog":"#2a1450","star":true,"parallax":"crystals","obStyle":"tooth","flyStyle":"jelly","weather":"mist","decor":"crystals","timeOfDay":"night"},
+  {"id":"frost-tundra-veil","name":"Tundra Veil","region":"Frostpeak","tier":5,"sky0":"#cdd9e2","sky1":"#e8eef2","skyGlow":"#f4f1e8","ground":"#e2e9ef","ground2":"#cad7e0","line":"#aebfcd","ob":"#5e5258","obEdge":"#1c1a1e","fly":"#3c4450","accent":"#93c4e6","fog":"#d6dee4","star":false,"parallax":"dunes","obStyle":"fence","flyStyle":"leaf","weather":"fog","decor":"pebbles","timeOfDay":"day"},
+  {"id":"ember-cinderlight-causeway","name":"Cinderlight Causeway","region":"Ember Depths","tier":6,"sky0":"#e0763a","sky1":"#ffbf5e","skyGlow":"#ffe1a2","ground":"#43271b","ground2":"#5a3625","line":"#ff8a3a","ob":"#234055","obEdge":"#0e1219","fly":"#1b3146","accent":"#ffd84a","fog":"#e3935a","star":false,"parallax":"lava","obStyle":"rock","flyStyle":"drone","weather":"embers","decor":"rocks","timeOfDay":"day"},
+  {"id":"ember-sulfur-reach","name":"Sulfur Reach","region":"Ember Depths","tier":6,"sky0":"#b9b552","sky1":"#ecdf86","skyGlow":"#fbf2ae","ground":"#46421f","ground2":"#5b552c","line":"#d6c646","ob":"#5e234f","obEdge":"#160a13","fly":"#3c1733","accent":"#e070d8","fog":"#cfc77a","star":false,"parallax":"dunes","obStyle":"crystal","flyStyle":"bat","weather":"mist","decor":"crystals","timeOfDay":"dawn"},
+  {"id":"ember-coldfire-hollow","name":"Coldfire Hollow","region":"Ember Depths","tier":6,"sky0":"#06101e","sky1":"#103a54","skyGlow":"#2487a2","ground":"#0a1620","ground2":"#10303f","line":"#2eb2cc","ob":"#ffb048","obEdge":"#fff3d2","fly":"#ffd98c","accent":"#4fe2ff","fog":"#18465c","star":true,"parallax":"caverns","obStyle":"shard","flyStyle":"ghost","weather":"sparkles","decor":"pebbles","timeOfDay":"night"},
+  {"id":"ember-ashpall-flats","name":"Ashpall Flats","region":"Ember Depths","tier":6,"sky0":"#897d77","sky1":"#c3b1a0","skyGlow":"#dcc7af","ground":"#443a36","ground2":"#564943","line":"#936e3c","ob":"#7c2a1f","obEdge":"#190d0a","fly":"#2a1611","accent":"#ff7c46","fog":"#b1a195","star":false,"parallax":"mountains","obStyle":"slab","flyStyle":"bird","weather":"ash","decor":"bones","timeOfDay":"day"},
+  {"id":"ember-scarlet-maw","name":"Scarlet Maw","region":"Ember Depths","tier":6,"sky0":"#2a0a16","sky1":"#8e1c26","skyGlow":"#e8512f","ground":"#1e0a10","ground2":"#31131b","line":"#ff5638","ob":"#f0c24c","obEdge":"#fff4d2","fly":"#ffcaa2","accent":"#ffd33e","fog":"#6a2122","star":true,"parallax":"ruins","obStyle":"totem","flyStyle":"bat","weather":"fog","decor":"lanterns","timeOfDay":"dusk"},
+  {"id":"ember-verdigris-glassworks","name":"Verdigris Glassworks","region":"Ember Depths","tier":6,"sky0":"#061410","sky1":"#0e3a30","skyGlow":"#1aa078","ground":"#08160f","ground2":"#103025","line":"#26c88e","ob":"#ff7a3c","obEdge":"#ffe9ca","fly":"#6cffc9","accent":"#5cffb0","fog":"#114a3a","star":true,"parallax":"crystals","obStyle":"spike","flyStyle":"jelly","weather":"fireflies","decor":"crystals","timeOfDay":"night"},
+  {"id":"ember-emberbloom-reverie","name":"Emberbloom Reverie","region":"Ember Depths","tier":6,"sky0":"#f0a070","sky1":"#ffd6a0","skyGlow":"#ffe9c4","ground":"#4a2f24","ground2":"#5e3d2e","line":"#ff9a55","ob":"#34407e","obEdge":"#11131f","fly":"#2a2f5a","accent":"#ff6f9c","fog":"#f0b488","star":false,"parallax":"mushrooms","obStyle":"mushroom","flyStyle":"leaf","weather":"embers","decor":"mushrooms","timeOfDay":"dawn"},
+  {"id":"ember-fumarole-mirage","name":"Fumarole Mirage","region":"Ember Depths","tier":6,"sky0":"#2a0e3a","sky1":"#8a1f6e","skyGlow":"#d83a86","ground":"#170a1e","ground2":"#28122e","line":"#e0469a","ob":"#3ad0a8","obEdge":"#f0fff6","fly":"#66ffd2","accent":"#ffd24a","fog":"#4a1a44","star":true,"parallax":"factory","obStyle":"drum","flyStyle":"drone","weather":"bubbles","decor":"gears","timeOfDay":"dusk"},
+  {"id":"ember-incandescent-span","name":"Incandescent Span","region":"Ember Depths","tier":6,"sky0":"#ffe9a0","sky1":"#fff6d8","skyGlow":"#fffbee","ground":"#5a3c22","ground2":"#74532f","line":"#ff9a3c","ob":"#2a3d63","obEdge":"#0c1018","fly":"#243a5e","accent":"#ff7a3a","fog":"#f3df9e","star":false,"parallax":"hills","obStyle":"anvil","flyStyle":"jelly","weather":"none","decor":"rocks","timeOfDay":"day"},
+  {"id":"ember-spectral-abyss","name":"Spectral Abyss","region":"Ember Depths","tier":6,"sky0":"#0a0820","sky1":"#241458","skyGlow":"#2a8a7a","ground":"#0a0816","ground2":"#181030","line":"#4a8ad0","ob":"#ff8a4c","obEdge":"#fff0d8","fly":"#d2a0ff","accent":"#54f0c0","fog":"#1a1640","star":true,"parallax":"aurora","obStyle":"bone","flyStyle":"ghost","weather":"ash","decor":"bones","timeOfDay":"night"},
+  {"id":"reef-sunbeam-shallows","name":"Sunbeam Shallows","region":"Sunken Reef","tier":7,"sky0":"#34c6e0","sky1":"#178fad","skyGlow":"#cdf7d8","ground":"#e2cf8a","ground2":"#c9b066","line":"#2fb89a","ob":"#ff7a4d","obEdge":"#15302a","fly":"#ff5fb0","accent":"#ffe27a","fog":"#a6e2dd","star":false,"parallax":"waves","obStyle":"coral","flyStyle":"jelly","weather":"bubbles","decor":"coral","timeOfDay":"day"},
+  {"id":"reef-coral-dawnbloom","name":"Coral Dawnbloom","region":"Sunken Reef","tier":7,"sky0":"#1f6f92","sky1":"#ff9fae","skyGlow":"#ffd6a8","ground":"#7a3f4e","ground2":"#5e2f3e","line":"#ff9fb8","ob":"#16b39a","obEdge":"#112a30","fly":"#7fe8ff","accent":"#ffd86a","fog":"#e8b8b6","star":false,"parallax":"crystals","obStyle":"sprout","flyStyle":"ghost","weather":"petals","decor":"flowers","timeOfDay":"dawn"},
+  {"id":"reef-kelpsong-forest","name":"Kelpsong Forest","region":"Sunken Reef","tier":7,"sky0":"#2aa37e","sky1":"#137059","skyGlow":"#c8f0a0","ground":"#123a30","ground2":"#0e2c26","line":"#4fd0a0","ob":"#ff8a33","obEdge":"#14241c","fly":"#ffe06a","accent":"#d6ff7a","fog":"#84c8a4","star":false,"parallax":"bamboo","obStyle":"vine","flyStyle":"leaf","weather":"sparkles","decor":"reeds","timeOfDay":"day"},
+  {"id":"reef-amber-dusk-tide","name":"Amber Dusk Tide","region":"Sunken Reef","tier":7,"sky0":"#2e2150","sky1":"#b85230","skyGlow":"#ff9a4d","ground":"#1a2440","ground2":"#131a30","line":"#ff8a5a","ob":"#1fb8c0","obEdge":"#d8fbff","fly":"#ff7ab0","accent":"#ffcf5a","fog":"#5a3f6e","star":true,"parallax":"dunes","obStyle":"rock","flyStyle":"bat","weather":"leaves","decor":"rocks","timeOfDay":"dusk"},
+  {"id":"reef-lantern-abyss","name":"Lantern Abyss","region":"Sunken Reef","tier":7,"sky0":"#03161f","sky1":"#08303f","skyGlow":"#0f6a64","ground":"#021019","ground2":"#04222c","line":"#19e0c8","ob":"#ff4fd0","obEdge":"#ffd9f4","fly":"#5fffe0","accent":"#b8ff5f","fog":"#062632","star":true,"parallax":"aurora","obStyle":"crystal","flyStyle":"jelly","weather":"fireflies","decor":"crystals","timeOfDay":"night"},
+  {"id":"reef-drowned-colonnade","name":"Drowned Colonnade","region":"Sunken Reef","tier":7,"sky0":"#357f7c","sky1":"#62a886","skyGlow":"#d2e69c","ground":"#294746","ground2":"#1f3938","line":"#79bd9c","ob":"#d8c08c","obEdge":"#182a28","fly":"#ff7a5a","accent":"#ffe39a","fog":"#94c2ac","star":false,"parallax":"ruins","obStyle":"pillar","flyStyle":"bat","weather":"mist","decor":"bones","timeOfDay":"day"},
+  {"id":"reef-pearl-grotto","name":"Pearl Grotto","region":"Sunken Reef","tier":7,"sky0":"#0e1830","sky1":"#283a60","skyGlow":"#9a8ac0","ground":"#0a1322","ground2":"#0f1c34","line":"#b8a8e2","ob":"#ff6f9a","obEdge":"#ffd9e8","fly":"#cfe6ff","accent":"#f0d6ff","fog":"#16203a","star":true,"parallax":"caverns","obStyle":"mound","flyStyle":"ghost","weather":"fog","decor":"pebbles","timeOfDay":"night"},
+  {"id":"reef-anemone-carnival","name":"Anemone Carnival","region":"Sunken Reef","tier":7,"sky0":"#28b2c8","sky1":"#5ad8de","skyGlow":"#ffd2e6","ground":"#133e4a","ground2":"#0f2f38","line":"#ff7ab0","ob":"#ff2f93","obEdge":"#102028","fly":"#ff8a33","accent":"#ffe24a","fog":"#a8e6ec","star":false,"parallax":"mushrooms","obStyle":"mushroom","flyStyle":"jelly","weather":"none","decor":"mushrooms","timeOfDay":"day"},
+  {"id":"reef-midnight-trench","name":"Midnight Trench","region":"Sunken Reef","tier":7,"sky0":"#02101c","sky1":"#06283a","skyGlow":"#0a4a52","ground":"#010a12","ground2":"#03161e","line":"#2a9aa0","ob":"#1fd0c8","obEdge":"#d6fffa","fly":"#b6ff7a","accent":"#ff5fc8","fog":"#04202a","star":true,"parallax":"space","obStyle":"tooth","flyStyle":"bat","weather":"snow","decor":"lanterns","timeOfDay":"night"},
+  {"id":"reef-stormsurge-shallows","name":"Stormsurge Shallows","region":"Sunken Reef","tier":7,"sky0":"#283a40","sky1":"#4c6e62","skyGlow":"#93a07e","ground":"#1a2a26","ground2":"#142420","line":"#6fae8a","ob":"#ff5a3a","obEdge":"#f2f0df","fly":"#ffd23a","accent":"#cfe0b0","fog":"#56685e","star":false,"parallax":"mountains","obStyle":"buoy","flyStyle":"bird","weather":"rain","decor":"grass","timeOfDay":"dusk"},
+  {"id":"mesa-vermilion-noon","name":"Vermilion Noon","region":"Dust Mesa","tier":8,"sky0":"#3f9bd4","sky1":"#c4e4f0","skyGlow":"#ffe2a4","ground":"#c24a2a","ground2":"#963620","line":"#6e2412","ob":"#2e1a26","obEdge":"#110a10","fly":"#1e1410","accent":"#ffd23f","fog":"#d8c6a4","star":false,"parallax":"mountains","obStyle":"rock","flyStyle":"bird","weather":"none","decor":"rocks","timeOfDay":"day"},
+  {"id":"mesa-rosewater-dawn","name":"Rosewater Dawn","region":"Dust Mesa","tier":8,"sky0":"#5a4a86","sky1":"#ffb497","skyGlow":"#ffd6a8","ground":"#a8503a","ground2":"#823c2c","line":"#5e2a1e","ob":"#1f7d74","obEdge":"#0c2826","fly":"#2a1828","accent":"#ff9e66","fog":"#e6c0b2","star":false,"parallax":"dunes","obStyle":"totem","flyStyle":"bird","weather":"mist","decor":"pebbles","timeOfDay":"dawn"},
+  {"id":"mesa-ochre-tempest","name":"Ochre Tempest","region":"Dust Mesa","tier":8,"sky0":"#d9a64e","sky1":"#f0d28a","skyGlow":"#fff0c4","ground":"#b86a30","ground2":"#97521f","line":"#6f3a14","ob":"#2c3650","obEdge":"#0d121e","fly":"#241a12","accent":"#ff8a2a","fog":"#e6cf96","star":false,"parallax":"hills","obStyle":"slab","flyStyle":"leaf","weather":"ash","decor":"grass","timeOfDay":"day"},
+  {"id":"mesa-cinder-dusk","name":"Cinder Dusk","region":"Dust Mesa","tier":8,"sky0":"#381f52","sky1":"#e85a2c","skyGlow":"#ffac42","ground":"#7a2e22","ground2":"#561d18","line":"#a8442a","ob":"#221220","obEdge":"#160a14","fly":"#1c1018","accent":"#ff7a36","fog":"#c4683e","star":true,"parallax":"ruins","obStyle":"tooth","flyStyle":"bat","weather":"embers","decor":"bones","timeOfDay":"dusk"},
+  {"id":"mesa-indigo-vigil","name":"Indigo Vigil","region":"Dust Mesa","tier":8,"sky0":"#0c1030","sky1":"#241f52","skyGlow":"#5e3a78","ground":"#361b1c","ground2":"#241214","line":"#5a2a28","ob":"#c6a47a","obEdge":"#f2e4c6","fly":"#b6a6e2","accent":"#7ad0ff","fog":"#26284a","star":true,"parallax":"space","obStyle":"pillar","flyStyle":"ghost","weather":"fireflies","decor":"lanterns","timeOfDay":"night"},
+  {"id":"mesa-larkspur-bloom","name":"Larkspur Bloom","region":"Dust Mesa","tier":8,"sky0":"#4f9aa6","sky1":"#d4ecda","skyGlow":"#ffe2b4","ground":"#b0543e","ground2":"#883e2d","line":"#642a1e","ob":"#45201c","obEdge":"#150a08","fly":"#d24f7c","accent":"#ff6f9a","fog":"#cfe2d4","star":false,"parallax":"clouds","obStyle":"mound","flyStyle":"leaf","weather":"petals","decor":"flowers","timeOfDay":"dawn"},
+  {"id":"mesa-amber-gloaming","name":"Amber Gloaming","region":"Dust Mesa","tier":8,"sky0":"#4a335e","sky1":"#d98f4e","skyGlow":"#f2c074","ground":"#6e3526","ground2":"#4f2419","line":"#8a4428","ob":"#232a48","obEdge":"#0d111f","fly":"#1e1320","accent":"#ffb24a","fog":"#c89060","star":true,"parallax":"caverns","obStyle":"shard","flyStyle":"bat","weather":"leaves","decor":"reeds","timeOfDay":"dusk"},
+  {"id":"mesa-thunderhead-mesa","name":"Thunderhead Mesa","region":"Dust Mesa","tier":8,"sky0":"#44525a","sky1":"#97a39a","skyGlow":"#d6dcc8","ground":"#8a4030","ground2":"#6a2e22","line":"#4f2014","ob":"#1f2a2e","obEdge":"#0c1214","fly":"#dfe2d6","accent":"#f4e85a","fog":"#b8bfb8","star":false,"parallax":"mountains","obStyle":"anvil","flyStyle":"ghost","weather":"rain","decor":"none","timeOfDay":"day"},
+  {"id":"mesa-aurora-wash","name":"Aurora Wash","region":"Dust Mesa","tier":8,"sky0":"#0e1a2e","sky1":"#163a3a","skyGlow":"#2f8a6a","ground":"#2e1c20","ground2":"#1e1216","line":"#4a2c2e","ob":"#7ad8c0","obEdge":"#e6fff4","fly":"#b6e8d6","accent":"#66ffcf","fog":"#1c3038","star":true,"parallax":"aurora","obStyle":"crystal","flyStyle":"bat","weather":"sparkles","decor":"crystals","timeOfDay":"night"},
+  {"id":"mesa-bloodmoon-drift","name":"Bloodmoon Drift","region":"Dust Mesa","tier":8,"sky0":"#2a1024","sky1":"#7a1f2e","skyGlow":"#c43a3a","ground":"#3e1620","ground2":"#2a0e16","line":"#5e2026","ob":"#cbb6d2","obEdge":"#f0e6f4","fly":"#e6c0c8","accent":"#ff3d5a","fog":"#3a1622","star":true,"parallax":"crystals","obStyle":"spike","flyStyle":"ghost","weather":"fog","decor":"rocks","timeOfDay":"dusk"},
+  {"id":"foundry-daybreak-smeltworks","name":"Daybreak Smeltworks","region":"Iron Foundry","tier":9,"sky0":"#c9b4d0","sky1":"#ffc9a0","skyGlow":"#ffe0b8","ground":"#463a3c","ground2":"#574849","line":"#c87a4a","ob":"#2f97a8","obEdge":"#1c1416","fly":"#34506a","accent":"#ffce5c","fog":"#e0c4c0","star":false,"parallax":"factory","obStyle":"gear","flyStyle":"drone","weather":"mist","decor":"gears","timeOfDay":"dawn"},
+  {"id":"foundry-quench-yard-clarion","name":"Quench Yard Clarion","region":"Iron Foundry","tier":9,"sky0":"#7fb0d4","sky1":"#c7dce8","skyGlow":"#eef3e6","ground":"#555f66","ground2":"#69737a","line":"#b05f33","ob":"#ff7a3d","obEdge":"#201a1a","fly":"#2a3a4a","accent":"#ffd23f","fog":"#cdd9e0","star":false,"parallax":"city","obStyle":"pylon","flyStyle":"bird","weather":"sparkles","decor":"rocks","timeOfDay":"day"},
+  {"id":"foundry-cinderfall-ridge","name":"Cinderfall Ridge","region":"Iron Foundry","tier":9,"sky0":"#3a2436","sky1":"#d8632a","skyGlow":"#ff9a3c","ground":"#2a1c20","ground2":"#3a282a","line":"#c8763e","ob":"#3fb0c0","obEdge":"#14202a","fly":"#6fd0e6","accent":"#ffd06a","fog":"#6e4a44","star":true,"parallax":"mountains","obStyle":"anvil","flyStyle":"drone","weather":"embers","decor":"pebbles","timeOfDay":"dusk"},
+  {"id":"foundry-molten-vespers","name":"Molten Vespers","region":"Iron Foundry","tier":9,"sky0":"#10080a","sky1":"#5a1408","skyGlow":"#c43208","ground":"#1a0c0a","ground2":"#281211","line":"#7a2410","ob":"#ff7a2a","obEdge":"#ffe6c8","fly":"#ffd9a0","accent":"#ffb43a","fog":"#2a0e0a","star":true,"parallax":"lava","obStyle":"drum","flyStyle":"ghost","weather":"ash","decor":"lanterns","timeOfDay":"night"},
+  {"id":"foundry-brassglow-forgeworks","name":"Brassglow Forgeworks","region":"Iron Foundry","tier":9,"sky0":"#ffd27a","sky1":"#ffe9b8","skyGlow":"#fff4d2","ground":"#6e4f30","ground2":"#80603c","line":"#c89a4a","ob":"#2e4a8a","obEdge":"#161a2a","fly":"#243049","accent":"#ff8a3a","fog":"#e6cfa0","star":false,"parallax":"ruins","obStyle":"brick","flyStyle":"bird","weather":"fog","decor":"gears","timeOfDay":"day"},
+  {"id":"foundry-smogveil-drift","name":"Smogveil Drift","region":"Iron Foundry","tier":9,"sky0":"#2a1840","sky1":"#7a3a6a","skyGlow":"#c45a7a","ground":"#241a2a","ground2":"#322438","line":"#8a4a7a","ob":"#ff9a3a","obEdge":"#fff0e0","fly":"#ffcf5c","accent":"#ff6fae","fog":"#4a3052","star":true,"parallax":"clouds","obStyle":"slab","flyStyle":"bat","weather":"rain","decor":"bones","timeOfDay":"dusk"},
+  {"id":"foundry-verdigris-smelter","name":"Verdigris Smelter","region":"Iron Foundry","tier":9,"sky0":"#06120e","sky1":"#123a2a","skyGlow":"#2fae6a","ground":"#0e1814","ground2":"#18261f","line":"#2f8a5a","ob":"#ff7a3a","obEdge":"#ffe6cf","fly":"#ff5fae","accent":"#5cffb0","fog":"#0e2a1e","star":true,"parallax":"crystals","obStyle":"barrel","flyStyle":"jelly","weather":"sparkles","decor":"crystals","timeOfDay":"night"},
+  {"id":"foundry-ashdrift-dawn","name":"Ashdrift Dawn","region":"Iron Foundry","tier":9,"sky0":"#a9c2c8","sky1":"#e6d2c0","skyGlow":"#f4e2cc","ground":"#5a5e60","ground2":"#6c7072","line":"#3f8a96","ob":"#c2502a","obEdge":"#1a1210","fly":"#2e3a44","accent":"#ffb86a","fog":"#cdd2cf","star":false,"parallax":"dunes","obStyle":"spike","flyStyle":"drone","weather":"snow","decor":"pebbles","timeOfDay":"dawn"},
+  {"id":"foundry-underforge-hollows","name":"Underforge Hollows","region":"Iron Foundry","tier":9,"sky0":"#0a0808","sky1":"#2a1208","skyGlow":"#ff6a1a","ground":"#140e0c","ground2":"#20140f","line":"#8a3a14","ob":"#2fbcc4","obEdge":"#d8fbff","fly":"#ffc46e","accent":"#ff8a3a","fog":"#1e120c","star":true,"parallax":"caverns","obStyle":"pillar","flyStyle":"bat","weather":"embers","decor":"crystals","timeOfDay":"night"},
+  {"id":"foundry-whitehot-zenith","name":"Whitehot Zenith","region":"Iron Foundry","tier":9,"sky0":"#3a0e14","sky1":"#e23a10","skyGlow":"#ffb024","ground":"#1e0c0c","ground2":"#2c1210","line":"#ff6a1a","ob":"#18b8c8","obEdge":"#0e1e26","fly":"#5fe0f0","accent":"#ffd24a","fog":"#4a160e","star":true,"parallax":"grid","obStyle":"gear","flyStyle":"drone","weather":"embers","decor":"gears","timeOfDay":"dusk"},
+  {"id":"spire-sunlit-sanctum","name":"Sunlit Sanctum","region":"Celestial Spire","tier":10,"sky0":"#8cc0f5","sky1":"#fff0cf","skyGlow":"#ffdd93","ground":"#c7b07a","ground2":"#e2d2a0","line":"#b58a37","ob":"#4b3ba6","obEdge":"#181030","fly":"#c2356a","accent":"#ffd24a","fog":"#f1e4c0","star":false,"parallax":"ruins","obStyle":"pillar","flyStyle":"bird","weather":"sparkles","decor":"crystals","timeOfDay":"day"},
+  {"id":"spire-roseate-ascension","name":"Roseate Ascension","region":"Celestial Spire","tier":10,"sky0":"#d27fb4","sky1":"#ffd9ab","skyGlow":"#ffae77","ground":"#b27590","ground2":"#cf95ad","line":"#834862","ob":"#18908b","obEdge":"#142329","fly":"#5a2f9c","accent":"#ffce67","fog":"#ffe2cb","star":true,"parallax":"clouds","obStyle":"totem","flyStyle":"jelly","weather":"petals","decor":"lanterns","timeOfDay":"dawn"},
+  {"id":"spire-amethyst-vespers","name":"Amethyst Vespers","region":"Celestial Spire","tier":10,"sky0":"#281046","sky1":"#6a2480","skyGlow":"#b23a9c","ground":"#1e1138","ground2":"#2d1a4d","line":"#9a5cff","ob":"#34e3cf","obEdge":"#eafdff","fly":"#ff7ad8","accent":"#ffe06a","fog":"#43285f","star":true,"parallax":"aurora","obStyle":"shard","flyStyle":"ghost","weather":"fireflies","decor":"flowers","timeOfDay":"dusk"},
+  {"id":"spire-indigo-void","name":"Indigo Void","region":"Celestial Spire","tier":10,"sky0":"#050a22","sky1":"#142a64","skyGlow":"#2f5fb0","ground":"#0a1230","ground2":"#15214c","line":"#3f7bff","ob":"#ffb13d","obEdge":"#f3f6ff","fly":"#ff5ed6","accent":"#9be8ff","fog":"#16264e","star":true,"parallax":"space","obStyle":"crystal","flyStyle":"drone","weather":"mist","decor":"rocks","timeOfDay":"night"},
+  {"id":"spire-verdant-aurora","name":"Verdant Aurora","region":"Celestial Spire","tier":10,"sky0":"#042118","sky1":"#0e5640","skyGlow":"#2f9a68","ground":"#082019","ground2":"#103026","line":"#4fffb0","ob":"#ff5e9a","obEdge":"#eafff4","fly":"#c08bff","accent":"#aef7d0","fog":"#0c3a2c","star":true,"parallax":"crystals","obStyle":"pylon","flyStyle":"leaf","weather":"fog","decor":"mushrooms","timeOfDay":"night"},
+  {"id":"spire-emberforge-dusk","name":"Emberforge Dusk","region":"Celestial Spire","tier":10,"sky0":"#2a1230","sky1":"#c0451f","skyGlow":"#ff7a33","ground":"#2b1620","ground2":"#3a2030","line":"#ff8a3d","ob":"#2fd6c0","obEdge":"#fff1e0","fly":"#5b2fb0","accent":"#ffd24a","fog":"#4a2330","star":true,"parallax":"mountains","obStyle":"spike","flyStyle":"bat","weather":"embers","decor":"pebbles","timeOfDay":"dusk"},
+  {"id":"spire-hoarfrost-vigil","name":"Hoarfrost Vigil","region":"Celestial Spire","tier":10,"sky0":"#04141f","sky1":"#0c3346","skyGlow":"#2f7d9a","ground":"#0d2838","ground2":"#16404f","line":"#5fe0ff","ob":"#a6ecff","obEdge":"#eafaff","fly":"#ffd66a","accent":"#d6f6ff","fog":"#123847","star":true,"parallax":"caverns","obStyle":"ice","flyStyle":"ghost","weather":"snow","decor":"crystals","timeOfDay":"night"},
+  {"id":"spire-goldleaf-reliquary","name":"Goldleaf Reliquary","region":"Celestial Spire","tier":10,"sky0":"#6fc6c0","sky1":"#ffe7b0","skyGlow":"#ffcf72","ground":"#c2a667","ground2":"#ddc78f","line":"#a87f34","ob":"#5b34a0","obEdge":"#161028","fly":"#d6406a","accent":"#ffd06a","fog":"#ffe9c8","star":true,"parallax":"dunes","obStyle":"slab","flyStyle":"bird","weather":"mist","decor":"grass","timeOfDay":"dawn"},
+  {"id":"spire-sigil-lattice","name":"Sigil Lattice","region":"Celestial Spire","tier":10,"sky0":"#2a0a3a","sky1":"#8a1f6a","skyGlow":"#ff4fa0","ground":"#1a0822","ground2":"#2a1238","line":"#ff5cc0","ob":"#36e6c8","obEdge":"#eafff7","fly":"#ffd23f","accent":"#5ff0d8","fog":"#43164e","star":true,"parallax":"grid","obStyle":"neon","flyStyle":"jelly","weather":"fireflies","decor":"gears","timeOfDay":"dusk"},
+  {"id":"spire-empyrean-crown","name":"Empyrean Crown","region":"Celestial Spire","tier":10,"sky0":"#060313","sky1":"#3a0c5e","skyGlow":"#ff9e4a","ground":"#0c0622","ground2":"#1a0e3a","line":"#ffd24a","ob":"#2ff0e0","obEdge":"#ffffff","fly":"#ff5ed6","accent":"#fff3cf","fog":"#1c0a3a","star":true,"parallax":"city","obStyle":"crystal","flyStyle":"ghost","weather":"sparkles","decor":"crystals","timeOfDay":"night"}
   /*__THEMES_END__*/
 ];
 
@@ -1717,7 +1765,9 @@ $("muteBtn").textContent = save.muted ? "🔇" : "🔊";
 
 /* input: one big JUMP button (hold = higher), tap the play area, keyboard */
 jumpBtn.addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); jumpBtn.classList.add("on"); jump(); }, { passive: false });
-cv.addEventListener("pointerdown", e => { e.preventDefault(); jump(); }, { passive: false });
+// tap ANYWHERE below the HUD to jump (hold = higher hop)
+$("tapZone").addEventListener("pointerdown", e => { e.preventDefault(); jumpBtn.classList.add("on"); jump(); }, { passive: false });
+cv.addEventListener("pointerdown", e => { e.preventDefault(); jumpBtn.classList.add("on"); jump(); }, { passive: false });
 window.addEventListener("pointerup", () => { jumpBtn.classList.remove("on"); jumpRelease(); });
 window.addEventListener("pointercancel", () => { jumpBtn.classList.remove("on"); jumpRelease(); });
 window.addEventListener("keydown", e => {
