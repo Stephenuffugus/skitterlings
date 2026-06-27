@@ -43,17 +43,18 @@
   #stage{position:relative;flex:1 1 auto;display:flex;align-items:center;justify-content:center;min-height:0}
   #game{width:100%;height:100%;display:block;touch-action:none}
 
-  /* ---- Single JUMP control: one big thumb button, centered ---- */
-  .ctrl{position:absolute;bottom:max(22px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
-    width:min(74vw,440px);min-width:140px;height:104px;border-radius:30px;
+  /* ---- Single JUMP control: a real bottom bar (board sits ABOVE it) ---- */
+  .ctrl{flex:0 0 auto;align-self:center;
+    width:min(74vw,440px);min-width:140px;height:96px;border-radius:26px;
+    margin:6px auto max(14px,env(safe-area-inset-bottom));
     border:1px solid var(--line);background:#243056e6;backdrop-filter:blur(6px);
     color:var(--ink);font-weight:900;letter-spacing:3px;font-size:17px;
     display:none;place-items:center;z-index:8;touch-action:none;cursor:pointer;
-    box-shadow:0 10px 28px #0007}
-  #jumpBtn.on{border-color:var(--gold);color:var(--gold);transform:translateX(-50%) scale(.97)}
+    box-shadow:0 8px 24px #0007}
+  #jumpBtn.on{border-color:var(--gold);color:var(--gold);transform:scale(.97)}
   body.playing .ctrl{display:grid}
   @media (orientation:landscape){
-    .ctrl{height:22vh;max-height:120px;width:min(60vw,420px)}
+    .ctrl{height:74px;width:min(60vw,420px);margin-top:2px}
   }
   #hint{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);text-align:center;
     pointer-events:none;color:#ffffffe6;font-weight:800;font-size:15px;letter-spacing:1px;
@@ -1127,13 +1128,13 @@ function frame(ts) {
 }
 
 function startRun() {
-  reset(); G.mode = "playing"; document.body.classList.add("playing");
+  reset(); G.mode = "playing"; document.body.classList.add("playing"); fitCanvas();
   hide(titleScreen); hide(overScreen);
   hint.style.display = "block"; setTimeout(() => hint.style.display = "none", 1400);
   Bridge.emit("run-start", { world: save.theme });
 }
 function gameOver() {
-  Sfx.hit(); G.mode = "over"; document.body.classList.remove("playing");
+  Sfx.hit(); G.mode = "over"; document.body.classList.remove("playing"); fitCanvas();
   Wallet.earn(G.runCoins, "run");                       // bank the run's coins (routes through the wallet seam)
   const best = G.score > save.best; if (best) save.best = G.score;
   unlockWorld(THEMES[G.maxStage].id);
@@ -1153,7 +1154,7 @@ const titleScreen=$("titleScreen"),overScreen=$("overScreen"),collScreen=$("coll
       hint=$("hint"),jumpBtn=$("jumpBtn"),
       scoreNow=$("scoreNow"),coinCount=$("coinCount"),stageLabel=$("stageLabel"),newBest=$("newBest");
 function show(el){el.classList.add("show");} function hide(el){el.classList.remove("show");}
-function toMenu(){ G.mode="attract"; document.body.classList.remove("playing"); reset();
+function toMenu(){ G.mode="attract"; document.body.classList.remove("playing"); reset(); fitCanvas();
   [overScreen,collScreen,themeScreen,hatchScreen].forEach(hide);
   $("bestTitle").textContent=save.best; $("worldsTitle").textContent=save.themes.length;
   renderFavBar(); show(titleScreen); }
