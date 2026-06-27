@@ -1,4 +1,4 @@
-i dont # SKITTERLINGS — Build Handoff
+2i dont # SKITTERLINGS — Build Handoff
 
 **What it is:** a one-button endless runner. The runner moves automatically; you **only jump** (hold = higher hop) to clear obstacles — **no duck/slide**. The run is a *journey* that cross-fades through **100 themed worlds** as you survive. Distance = score, coins drop + accrue, coins buy skin rolls and starting worlds. Headline features: a **procedural skin engine** (hundreds of deterministic critters from seeds, no art assets) and **100 hand-tuned worlds** rendered from a small library of parametric draw routines.
 

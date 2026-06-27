@@ -438,10 +438,10 @@ const Skins = (() => {
     tower:     { shape: "capsule",  bw: .60, bh: .70, hr: .25, head: "merged", legs: "stick", faceY: .20 },
     chibi:     { shape: "ball",     bw: .54, bh: .42, hr: .40, head: "big",    legs: "stub",  faceY: 0   },
     bean:      { shape: "bean",     bw: .68, bh: .64, hr: .25, head: "merged", legs: "stub",  faceY: .30, faceX: .60 },
-    slug:      { shape: "capsule",  bw: 1.0, bh: .34, hr: .21, head: "merged", legs: "none",  faceY: .34, faceX: .76 },
+    slug:      { shape: "capsule",  bw: 1.0, bh: .38, hr: .27, head: "merged", legs: "none",  faceY: .36, faceX: .74 },
     birdie:    { shape: "egg",      bw: .50, bh: .74, hr: .23, head: "merged", legs: "stick", faceY: .24, beak: 1 },
     teardrop:  { shape: "teardrop", bw: .74, bh: .72, hr: .25, head: "merged", legs: "stub",  faceY: .34 },
-    quad:      { shape: "capsule",  bw: .94, bh: .44, hr: .24, head: "front",  legs: "quad",  faceY: .30 },
+    quad:      { shape: "capsule",  bw: .94, bh: .46, hr: .28, head: "front",  legs: "quad",  faceY: .30 },
     floaty:    { shape: "egg",      bw: .76, bh: .58, hr: .25, head: "merged", legs: "none",  faceY: .34, hover: 1 },
     lump:      { shape: "ball",     bw: .94, bh: .54, hr: .27, head: "merged", legs: "stub",  faceY: .30 },
   };
@@ -492,7 +492,7 @@ const Skins = (() => {
       c.fillStyle = dark; const tx = bx + 0.04 * S, ty = bMid + 0.04 * S;
       if (tr.tail === "long") { c.beginPath(); c.moveTo(tx, ty); c.quadraticCurveTo(tx - .26 * S, ty - .04 * S, tx - .28 * S, ty + .14 * S); c.lineTo(tx - .14 * S, ty + .16 * S); c.quadraticCurveTo(tx - .06 * S, ty + .06 * S, tx, ty + .08 * S); c.fill(); }
       else if (tr.tail === "puff") { circle(c, tx - .12 * S, ty + .04 * S, .13 * S); c.fill(); }
-      else if (tr.tail === "curl") { c.strokeStyle = dark; c.lineWidth = .07 * S; c.lineCap = "round"; c.beginPath(); c.moveTo(tx, ty); c.quadraticCurveTo(tx - .2 * S, ty - .02 * S, tx - .16 * S, ty + .16 * S); c.quadraticCurveTo(tx - .12 * S, ty + .28 * S, tx, ty + .22 * S); c.stroke(); }
+      else if (tr.tail === "curl") { c.strokeStyle = dark; c.lineWidth = .1 * S; c.lineCap = "round"; c.beginPath(); c.moveTo(tx + .03 * S, ty); c.quadraticCurveTo(tx - .14 * S, ty - .02 * S, tx - .14 * S, ty + .12 * S); c.quadraticCurveTo(tx - .14 * S, ty + .24 * S, tx - .02 * S, ty + .19 * S); c.stroke(); }
       else { circle(c, tx - .03 * S, ty + .03 * S, .08 * S); c.fill(); }
     }
 
@@ -575,7 +575,7 @@ const Skins = (() => {
   function drawEyes(c, tr, ex, ey, ink, S, phase) {
     const e = tr.eyes;
     const blink = phase != null && ((phase * 0.37) % 5) < 0.1;   // occasional blink in-game
-    const er = (e === "wide" ? .10 : e === "round" ? .088 : .074) * S;   // bigger, sweeter eyes
+    const er = (e === "wide" ? .105 : e === "round" ? .09 : .082) * S;   // bigger, sweeter eyes
     const xs = [ex, ex - .21 * S];
     // happy upward arc (used for sleepy/happy/wink/blink so nothing reads dead-eyed or grumpy)
     const arc = x => { c.strokeStyle = ink; c.lineWidth = .045 * S; c.lineCap = "round"; c.beginPath(); c.arc(x, ey + er * .25, er * .95, Math.PI * 1.18, Math.PI * 1.82); c.stroke(); };
