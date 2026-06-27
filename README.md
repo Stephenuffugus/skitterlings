@@ -1,5 +1,7 @@
 # Skitterlings
 
+> **Integrating this into the studio? Read [`START-HERE.md`](START-HERE.md).** Live build (once Pages is on): **https://stephenuffugus.github.io/skitterlings/**
+
 A one-button endless runner. You **run automatically and tap JUMP** to hop obstacles — no ducking, just timing. Your run is a *journey* that cross-fades through **100 themed worlds** as you survive, dropping coins you spend rolling **hundreds of procedurally-drawn skitterlings** to collect and equip. Single-file vanilla PWA, zero build step, zero art assets.
 
 ## Files
