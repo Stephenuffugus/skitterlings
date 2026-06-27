@@ -74,7 +74,10 @@
   .title .v{background:linear-gradient(90deg,var(--cyan),var(--pink),var(--gold));
     -webkit-background-clip:text;background-clip:text;color:transparent}
   .tagline{text-align:center;color:var(--muted);font-size:12px;letter-spacing:3px;
-    text-transform:uppercase;margin:4px 0 14px}
+    text-transform:uppercase;margin:4px 0 10px}
+  .story{max-width:330px;margin:0 auto 14px;text-align:center;color:var(--muted);
+    font-size:11.5px;line-height:1.5}
+  .story b{color:var(--gold)}
   .menu-btns{display:flex;flex-direction:column;gap:10px;max-width:340px;margin:0 auto;width:100%}
   .btn{border:none;border-radius:14px;padding:15px;font-size:16px;font-weight:800;cursor:pointer;
     color:#0e1326;background:var(--gold);letter-spacing:1px}
@@ -170,7 +173,8 @@
 <div class="screen show" id="titleScreen">
   <div class="scroll" style="display:flex;flex-direction:column;justify-content:center">
     <div class="title"><span class="v">SKITTERLINGS</span></div>
-    <div class="tagline">run · hop · collect</div>
+    <div class="tagline">chase the glimmer</div>
+    <div class="story">Every skitterling is a spark of the <b>Glimmer</b> — the first light that broke into a hundred worlds. Chase it home: you'll never quite catch it, but the chase wakes the worlds and calls new skitterlings out of hiding.</div>
     <div class="favbar" id="favBar"></div>
     <div class="menu-btns">
       <button class="btn" id="playBtn">PLAY</button>
@@ -1387,6 +1391,7 @@ const G = {
   obstacles: [], coins: [], spawnIn: 0, coinAcc: 0, runCoins: 0,
   holdJump: false, coyoteT: 0, jumpBuf: 0,
   fx: [], shake: 0, squash: 0, banner: null, bannerT: 0,
+  chase: { state: "gone", x: 9999, t: 3, vx: 0, glance: 0 },
   stageIdx: 0, stageA: THEMES[0].id, stageB: THEMES[0].id, blend: 0, transitioning: false, stageNext: 0,
   maxStage: 0
 };
@@ -1402,7 +1407,61 @@ function reset() {
   G.obstacles = []; G.coins = []; G.spawnIn = 0.6; G.coinAcc = 0; G.runCoins = 0;
   G.holdJump = false; G.coyoteT = 0; G.jumpBuf = 0;
   G.fx = []; G.shake = 0; G.squash = 0; G.banner = null; G.bannerT = 0;
+  G.chase = { state: "gone", x: CFG.GW + 200, t: 2.5 + Math.random() * 2.5, vx: 0, glance: 0 };
   applyStartWorld();
+}
+
+/* ---- The Glimmer: the thing every skitterling chases but never catches ----
+   It teases into view at the right edge (you're "gaining"), then bolts ahead. */
+function updateChase(dt) {
+  const ch = G.chase;
+  if (G.score < 30) return;
+  if (ch.state === "gone") {
+    ch.t -= dt;
+    if (ch.t <= 0) {
+      ch.state = "peek"; ch.x = CFG.GW + 120; ch.t = 1.6 + Math.random() * 1.0; ch.glance = 0;
+      if (!save.metGlimmer) { save.metGlimmer = true; persist(); pushBanner("Chase the Glimmer!"); }
+    }
+  } else if (ch.state === "peek") {
+    ch.x += ((CFG.GW - 150) - ch.x) * Math.min(1, dt * 1.7);   // drifts closer — "almost!"
+    ch.glance = Math.max(0, ch.glance - dt);
+    if (Math.random() < dt * 1.1) ch.glance = 0.55;            // a cheeky glance back
+    ch.t -= dt;
+    if (ch.t <= 0) { ch.state = "flee"; ch.vx = 240; }
+  } else if (ch.state === "flee") {
+    ch.vx *= (1 + dt * 1.7); ch.x += ch.vx * dt;              // and it's gone again
+    if (Math.random() < dt * 26) fx(ch.x - CFG.S * 0.5, CFG.groundY - CFG.S * 0.45, -30, -18, 24, 0.5, 2.4, "#fff3b0", "spark");
+    if (ch.x > CFG.GW + 180) { ch.state = "gone"; ch.t = 3.5 + Math.random() * 5; }
+  }
+}
+function drawGlimmer(c) {
+  const ch = G.chase;
+  if (ch.state === "gone" && ch.x > CFG.GW + 60) return;
+  const S = CFG.S, ph = G.clock * 14;
+  c.save(); c.translate(ch.x, CFG.groundY);
+  c.shadowColor = "#ffe9a0"; c.shadowBlur = 22;
+  // sparkle trail toward the player
+  for (let i = 0; i < 6; i++) { c.globalAlpha = Math.max(0, 0.5 - i * 0.07); c.fillStyle = i % 2 ? "#fff" : "#ffe27a"; c.beginPath(); c.arc(-S * (0.7 + i * 0.5), -S * 0.45 + Math.sin(ph * 0.5 + i) * 4, S * (0.06 - i * 0.006), 0, 7); c.fill(); }
+  c.globalAlpha = 1;
+  // glowing plume tail (trails left, wags)
+  c.save(); c.translate(-S * 0.32, -S * 0.5); c.rotate(0.5 + Math.sin(ph * 0.6) * 0.14);
+  const grd = c.createLinearGradient(0, 0, -S * 0.72, 0); grd.addColorStop(0, "#ffd24a"); grd.addColorStop(1, "#fff6cf");
+  c.fillStyle = grd; c.beginPath(); c.moveTo(0, 0); c.quadraticCurveTo(-S * 0.5, -S * 0.34, -S * 0.72, -S * 0.06); c.quadraticCurveTo(-S * 0.5, S * 0.06, 0, S * 0.18); c.closePath(); c.fill();
+  c.fillStyle = "#ffffffcc"; c.beginPath(); c.moveTo(0, 0); c.quadraticCurveTo(-S * 0.4, -S * 0.18, -S * 0.6, -S * 0.02); c.quadraticCurveTo(-S * 0.4, S * 0.02, 0, S * 0.1); c.closePath(); c.fill();
+  c.restore();
+  // running back legs
+  c.strokeStyle = "#e0a92e"; c.lineWidth = 0.09 * S; c.lineCap = "round"; const sp = Math.sin(ph) * 0.12 * S;
+  c.beginPath(); c.moveTo(-S * 0.1, -0.18 * S); c.lineTo(-S * 0.1 + sp, 0); c.stroke();
+  c.beginPath(); c.moveTo(S * 0.12, -0.18 * S); c.lineTo(S * 0.12 - sp, 0); c.stroke();
+  // body (seen from behind)
+  const bg = c.createRadialGradient(-S * 0.1, -S * 0.55, S * 0.05, -S * 0.1, -S * 0.5, S * 0.5); bg.addColorStop(0, "#fff3b0"); bg.addColorStop(1, "#ffcf3f");
+  c.fillStyle = bg; c.beginPath(); c.ellipse(0, -0.42 * S, 0.34 * S, 0.36 * S, 0, 0, 7); c.fill();
+  c.lineWidth = 0.03 * S; c.strokeStyle = "#e0a92e"; c.beginPath(); c.ellipse(0, -0.42 * S, 0.34 * S, 0.36 * S, 0, 0, 7); c.stroke();
+  // ears
+  c.fillStyle = "#ffcf3f"; [-1, 1].forEach(s => { c.beginPath(); c.moveTo(s * 0.12 * S, -0.72 * S); c.lineTo(s * 0.22 * S, -0.95 * S); c.lineTo(s * 0.02 * S, -0.74 * S); c.closePath(); c.fill(); });
+  // cheeky glance back
+  if (ch.glance > 0) { c.fillStyle = "#3a2a10"; c.beginPath(); c.arc(0.26 * S, -0.5 * S, 0.05 * S, 0, 7); c.fill(); c.fillStyle = "#fff"; c.beginPath(); c.arc(0.28 * S, -0.52 * S, 0.018 * S, 0, 7); c.fill(); c.globalAlpha = 0.4; c.fillStyle = "#ff9ec0"; c.beginPath(); c.arc(0.21 * S, -0.4 * S, 0.06 * S, 0, 7); c.fill(); c.globalAlpha = 1; }
+  c.restore();
 }
 
 function doJump(buffered) {
@@ -1483,6 +1542,7 @@ function update(dt) {
     if (!G.onGround) { G.onGround = true; G.coyoteT = CFG.coyote; landPuff(); G.squash = 1; if (G.jumpBuf > 0) doJump(true); }
   } else G.onGround = false;
 
+  updateChase(dt);
   G.spawnIn -= dt; if (G.spawnIn <= 0) spawn();
   for (const o of G.obstacles) { o.x -= G.speed * dt; if (o.kind === "fly") o.ph += dt * 14; }
   G.obstacles = G.obstacles.filter(o => o.x + o.w > -20);
@@ -1534,6 +1594,8 @@ function render() {
   ctx.strokeStyle = lineC; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0, CFG.groundY); ctx.lineTo(CFG.GW, CFG.groundY); ctx.stroke();
   const tick = G.dist % 40; ctx.fillStyle = lineC; for (let x = -tick; x < CFG.GW; x += 40) ctx.fillRect(x, CFG.groundY + 12, 14, 3);
   drawDecor(ctx, th);
+  // the Glimmer, always just ahead
+  drawGlimmer(ctx);
   // coins (bob)
   for (const c of G.coins) { if (c.got) continue; const yy = c.y + Math.sin(G.clock * 6 + c.x * 0.05) * 2; ctx.fillStyle = "#ffce4a"; ctx.beginPath(); ctx.arc(c.x, yy, c.r, 0, 7); ctx.fill(); ctx.fillStyle = "#b88600"; ctx.beginPath(); ctx.arc(c.x - 2, yy - 2, c.r * 0.5, 0, 7); ctx.fill(); }
   // obstacles

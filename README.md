@@ -9,6 +9,7 @@ A one-button endless runner. You **run automatically and tap JUMP** to hop obsta
 - `manifest.webmanifest` — installable PWA, **fullscreen** display, free orientation.
 - `sw.js` — offline cache / service worker.
 - `icon.svg` — app icon.
+- `STORY.md` — the lore: skitterlings are sparks of **the Glimmer**, the light they chase but never catch.
 - `HANDOFF.md` — architecture, guardrails, section map. **Read this first.**
 - `INTEGRATION.md` — how to wire it into the Sky Wolf portal + the Lucid Winds / sunbeam economy (launch params, postMessage API, `Wallet` endpoints). **Hand this to the studio dev.**
 
