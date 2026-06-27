@@ -214,6 +214,7 @@
     </div>
     <div class="muted" style="font-size:12px"><span id="collCount">0</span> collected. Tap to equip · ★ to favourite (top 3 pin to the menu).</div>
     <div class="grid" id="collGrid"></div>
+    <div id="collMore" class="muted center" style="font-size:11px;margin-top:14px"></div>
   </div>
 </div>
 
@@ -1702,7 +1703,9 @@ function openCollection() {
     const ra = rank(a), rb = rank(b); if (ra !== rb) return rb - ra;
     return save.owned.indexOf(b) - save.owned.indexOf(a);   // newest first
   });
-  order.forEach(seed => grid.appendChild(makeCell(seed)));
+  const CAP = 300;   // keep open fast even with thousands collected (favourites + rarest + newest are first)
+  order.slice(0, CAP).forEach(seed => grid.appendChild(makeCell(seed)));
+  const more = $("collMore"); if (more) more.textContent = order.length > CAP ? ("+ " + (order.length - CAP) + " more — favourites, rarest and newest shown first") : "";
   show(collScreen);
 }
 /* favourites quick-bar on the title screen (up to 3, tap to equip) */
