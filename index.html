@@ -510,12 +510,22 @@ const Skins = (() => {
     c.lineWidth = 0.035 * S; c.strokeStyle = ink; pathBody(c, A.shape, bx, bTop, bw, bh); c.stroke();
     if (M.sheen) { c.save(); c.shadowBlur = 0; c.fillStyle = "#ffffff66"; c.beginPath(); c.ellipse(bx + bw * 0.32, bTop + bh * 0.26, bw * 0.18, bh * 0.14, -0.5, 0, 7); c.fill(); c.restore(); }
 
-    // ---- ears + (separate) head ----
-    drawEars(c, tr, hx, A.head === "merged" ? earY : hcy, hr, body, dark, acc, ink, S);
+    // ---- arms (little limbs for character) ----
+    if (tr.archetype !== "slug" && tr.archetype !== "quad") {
+      c.strokeStyle = dark; c.lineWidth = 0.085 * S; c.lineCap = "round";
+      const ay = bTop + bh * 0.5, sw = pose === "run" ? Math.sin(phase + Math.PI) * 0.08 * S : pose === "jump" ? -0.12 * S : 0.02 * S;
+      c.beginPath(); c.moveTo(bx + bw * 0.1, ay); c.lineTo(bx - bw * 0.04, ay + 0.13 * S - sw); c.stroke();
+      c.beginPath(); c.moveTo(bx + bw * 0.9, ay); c.lineTo(bx + bw * 1.04, ay + 0.13 * S + sw); c.stroke();
+    }
+
+    // ---- head (separate) + ears (rooted, no float) ----
     if (drawHead) {
       c.fillStyle = body; circle(c, hx, hcy, hr); c.fill();
       c.save(); c.beginPath(); c.arc(hx, hcy, hr, 0, 7); c.clip(); const hh = c.createRadialGradient(hx - hr * 0.4, hcy - hr * 0.42, hr * 0.1, hx - hr * 0.4, hcy - hr * 0.42, hr * 1.5); hh.addColorStop(0, "#ffffff4a"); hh.addColorStop(0.6, "#ffffff00"); c.fillStyle = hh; c.beginPath(); c.arc(hx, hcy, hr, 0, 7); c.fill(); c.restore();
       c.lineWidth = 0.035 * S; c.strokeStyle = ink; circle(c, hx, hcy, hr); c.stroke();
+      drawEars(c, tr, hx, hcy - hr * 0.55, hr, body, dark, acc, ink, S);
+    } else {
+      drawEars(c, tr, hx, bTop + hr * 0.05, hr, body, dark, acc, ink, S);
     }
 
     // ---- face ----
@@ -531,15 +541,31 @@ const Skins = (() => {
     c.restore();
   }
 
-  function drawEars(c, tr, hx, hy, headR, body, dark, acc, ink, S) {
-    const e = tr.ear;
-    if (e === "ears") { [[-.6], [.6]].forEach(s => { c.save(); c.translate(hx + s[0] * headR, hy - headR * 0.7); c.fillStyle = body; c.beginPath(); c.ellipse(0, 0, headR * .26, headR * .5, s[0] * .3, 0, 7); c.fill(); c.stroke(); c.restore(); }); }
-    else if (e === "floppy") { [[-.7], [.7]].forEach(s => { c.save(); c.translate(hx + s[0] * headR * .8, hy - headR * .3); c.rotate(s[0] * .5); c.fillStyle = dark; rr(c, -headR * .16, 0, headR * .32, headR * .85, headR * .16); c.fill(); c.restore(); }); }
-    else if (e === "bunny") { [[-.45], [.45]].forEach(s => { c.save(); c.translate(hx + s[0] * headR * .6, hy - headR * 1.0); c.fillStyle = body; rr(c, -headR * .12, -headR * .55, headR * .24, headR * .95, headR * .12); c.fill(); c.stroke(); c.fillStyle = acc; rr(c, -headR * .06, -headR * .4, headR * .12, headR * .6, headR * .06); c.fill(); c.restore(); }); }
-    else if (e === "horns") { [[-.55], [.55]].forEach(s => { c.beginPath(); c.moveTo(hx + s[0] * headR * .8, hy - headR * .6); c.lineTo(hx + s[0] * headR * 1.1, hy - headR * 1.25); c.lineTo(hx + s[0] * headR * .35, hy - headR * .75); c.closePath(); c.fillStyle = dark; c.fill(); }); }
-    else if (e === "spikes") { c.fillStyle = dark; [-.5, 0, .5].forEach(o => { c.beginPath(); c.moveTo(hx + o * headR - headR * .12, hy - headR * .7); c.lineTo(hx + o * headR, hy - headR * 1.25); c.lineTo(hx + o * headR + headR * .12, hy - headR * .7); c.closePath(); c.fill(); }); }
-    else if (e === "antennae") { c.strokeStyle = dark; c.lineWidth = .04 * S; [[-.4], [.4]].forEach(s => { c.beginPath(); c.moveTo(hx + s[0] * headR * .5, hy - headR * .6); c.lineTo(hx + s[0] * headR * .8, hy - headR * 1.3); c.stroke(); c.fillStyle = acc; circle(c, hx + s[0] * headR * .8, hy - headR * 1.35, .05 * S); c.fill(); }); }
-    else if (e === "fin") { c.fillStyle = acc; c.beginPath(); c.moveTo(hx - headR * .2, hy - headR * .8); c.lineTo(hx, hy - headR * 1.5); c.lineTo(hx + headR * .35, hy - headR * .7); c.closePath(); c.fill(); }
+  // ears root into the surface at hy (no floating gap); shapes grow upward from `base`
+  function drawEars(c, tr, hx, hy, r, body, dark, acc, ink, S) {
+    const e = tr.ear; if (e === "none") return;
+    const base = hy + r * 0.1, lw = 0.028 * S; c.lineCap = "round"; c.lineJoin = "round";
+    if (e === "ears") {
+      [[-1], [1]].forEach(s => { c.save(); c.translate(hx + s[0] * r * 0.58, base); c.rotate(s[0] * 0.26);
+        c.fillStyle = body; c.strokeStyle = ink; c.lineWidth = lw; c.beginPath(); c.ellipse(0, -r * 0.52, r * 0.3, r * 0.58, 0, 0, 7); c.fill(); c.stroke();
+        c.fillStyle = "#00000026"; c.beginPath(); c.ellipse(0, -r * 0.5, r * 0.15, r * 0.36, 0, 0, 7); c.fill(); c.restore(); });
+    } else if (e === "bunny") {
+      [[-1], [1]].forEach(s => { c.save(); c.translate(hx + s[0] * r * 0.4, base); c.rotate(s[0] * 0.1);
+        c.fillStyle = body; c.strokeStyle = ink; c.lineWidth = lw; c.beginPath(); c.ellipse(0, -r * 0.82, r * 0.18, r * 0.88, 0, 0, 7); c.fill(); c.stroke();
+        c.fillStyle = "#ffc2d6"; c.beginPath(); c.ellipse(0, -r * 0.86, r * 0.085, r * 0.6, 0, 0, 7); c.fill(); c.restore(); });
+    } else if (e === "floppy") {
+      [[-1], [1]].forEach(s => { c.save(); c.translate(hx + s[0] * r * 0.74, hy - r * 0.06); c.rotate(s[0] * 0.7);
+        c.fillStyle = dark; c.strokeStyle = ink; c.lineWidth = lw; rr(c, -r * 0.16, -r * 0.12, r * 0.32, r * 0.95, r * 0.16); c.fill(); c.stroke(); c.restore(); });
+    } else if (e === "horns") {
+      [[-1], [1]].forEach(s => { c.fillStyle = dark; c.strokeStyle = ink; c.lineWidth = lw * 0.7;
+        c.beginPath(); c.moveTo(hx + s[0] * r * 0.36, base); c.quadraticCurveTo(hx + s[0] * r * 0.74, base - r * 0.5, hx + s[0] * r * 0.58, base - r * 1.05); c.quadraticCurveTo(hx + s[0] * r * 0.34, base - r * 0.4, hx + s[0] * r * 0.08, base + r * 0.02); c.closePath(); c.fill(); c.stroke(); });
+    } else if (e === "spikes") {
+      c.fillStyle = dark; c.strokeStyle = ink; c.lineWidth = lw * 0.7; [-0.5, 0, 0.5].forEach(o => { c.beginPath(); c.moveTo(hx + o * r - r * 0.14, base); c.lineTo(hx + o * r, base - r * 0.95); c.lineTo(hx + o * r + r * 0.14, base); c.closePath(); c.fill(); c.stroke(); });
+    } else if (e === "antennae") {
+      c.strokeStyle = dark; c.lineWidth = 0.034 * S; [[-1], [1]].forEach(s => { c.beginPath(); c.moveTo(hx + s[0] * r * 0.28, base); c.quadraticCurveTo(hx + s[0] * r * 0.46, base - r * 0.85, hx + s[0] * r * 0.82, base - r * 1.16); c.stroke(); c.fillStyle = acc; c.beginPath(); c.arc(hx + s[0] * r * 0.82, base - r * 1.22, r * 0.13, 0, 7); c.fill(); c.fillStyle = "#ffffff77"; c.beginPath(); c.arc(hx + s[0] * r * 0.78, base - r * 1.26, r * 0.05, 0, 7); c.fill(); });
+    } else if (e === "fin") {
+      c.fillStyle = acc; c.strokeStyle = ink; c.lineWidth = lw; c.beginPath(); c.moveTo(hx - r * 0.3, base); c.quadraticCurveTo(hx - r * 0.05, base - r * 1.18, hx + r * 0.3, base - r * 0.55); c.quadraticCurveTo(hx + r * 0.08, base - r * 0.12, hx - r * 0.3, base); c.closePath(); c.fill(); c.stroke();
+    }
   }
 
   function drawEyes(c, tr, ex, ey, ink, S, phase) {
@@ -1362,8 +1388,8 @@ function drawWeather(c, th) {
 }
 function drawDecor(c, th) {
   const d = th.decor; if (!d || d === "none") return;
-  const gy = CFG.groundY, sp = 140, off = G.dist % sp, acc = th.accent || "#fff", ln = th.line || "#666";
-  c.save();
+  const gy = CFG.groundY, sp = 220, off = G.dist % sp, acc = th.accent || "#fff", ln = th.line || "#666";
+  c.save(); c.globalAlpha = 0.55;   // sparser + fainter so the ground doesn't distract from the runner
   for (let i = -1; i < Math.ceil(CFG.GW / sp) + 1; i++) {
     const x = i * sp - off + ((i * 53) % 40);
     if (d === "grass" || d === "reeds") { c.strokeStyle = ln; c.lineWidth = 2; const hh = d === "reeds" ? 26 : 12; for (let b = -2; b <= 2; b++) { c.beginPath(); c.moveTo(x + b * 3, gy); c.quadraticCurveTo(x + b * 3 + b, gy - hh, x + b * 4, gy - hh - 2); c.stroke(); } }
@@ -1394,7 +1420,7 @@ function drawLighting(c, th) {
 const CFG = {
   GW: 960, GH: 300, groundY: 250, runnerX: 130, S: 64,
   gravity: 2600, jumpV: -980, jumpCut: 0.42, coyote: 0.09, buffer: 0.13,
-  speed0: 340, speedMax: 800, speedRamp: 0.55,
+  speed0: 340, speedMax: 1400, speedRamp: 0.5,   // keeps accelerating much longer before plateauing
   coinEvery: 420, flyAfter: 200,          // coinEvery↑ = slower passive trickle (coins were too easy)
   stageLen: 240, stageFade: 2.0
 };
@@ -1628,7 +1654,7 @@ function render() {
   drawWeather(ctx, th);
   // ground (+ texture stripe)
   ctx.fillStyle = groundC; ctx.fillRect(-14, CFG.groundY, CFG.GW + 28, CFG.GH - CFG.groundY + 14);
-  if (A.ground2 || B.ground2) { ctx.save(); ctx.globalAlpha = 0.5; ctx.fillStyle = lerpC(A.ground2 || A.ground, B.ground2 || B.ground, bl); const tk = G.dist % 48; for (let x = -tk; x < CFG.GW; x += 48) ctx.fillRect(x, CFG.groundY + 18, 24, 4); ctx.restore(); }
+  if (A.ground2 || B.ground2) { ctx.save(); ctx.globalAlpha = 0.22; ctx.fillStyle = lerpC(A.ground2 || A.ground, B.ground2 || B.ground, bl); const tk = G.dist % 64; for (let x = -tk; x < CFG.GW; x += 64) ctx.fillRect(x, CFG.groundY + 20, 28, 3); ctx.restore(); }
   ctx.strokeStyle = lineC; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0, CFG.groundY); ctx.lineTo(CFG.GW, CFG.groundY); ctx.stroke();
   const tick = G.dist % 40; ctx.fillStyle = lineC; for (let x = -tick; x < CFG.GW; x += 40) ctx.fillRect(x, CFG.groundY + 12, 14, 3);
   drawDecor(ctx, th);
