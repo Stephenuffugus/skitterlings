@@ -325,8 +325,8 @@ const Skins = (() => {
   const ARCHES   = ["roundling", "tower", "chibi", "bean", "slug", "birdie", "teardrop", "quad", "floaty", "lump"];
   // finish/material — gated by rarity; multiplies perceived variety hugely
   const MATMOD = {
-    matte:   { l: 57, ds: 0 },   pastel:  { l: 74, ds: -20 }, glossy: { l: 58, ds: 2, sheen: 1 },
-    metallic:{ l: 62, ds: -22, sheen: 1 }, neon: { l: 56, ds: 24 }, holo: { l: 60, ds: 6 },
+    matte:   { l: 57, ds: 0 },   pastel:  { l: 72, ds: -12 }, glossy: { l: 58, ds: 2, sheen: 1 },
+    metallic:{ l: 62, ds: -12, sheen: 1 }, neon: { l: 56, ds: 24 }, holo: { l: 60, ds: 6 },
     frost:   { l: 70, ds: -6 },  ember:   { l: 54, ds: 14 }
   };
 
@@ -355,6 +355,8 @@ const Skins = (() => {
     if (rarIdx >= 2 && acc === "none") acc = pick(["none", "scarf", "cap", "headphones", "bowtie"]);
     if (rarIdx >= 3) acc = pick(["glasses", "headphones", "cap", "flower", "bowtie"]);
     if (rarIdx >= 4) acc = "crown";
+    // horizontal critters have no proper head-top / neck, so bands & hats float — keep only face items
+    if ((archetype === "slug" || archetype === "quad") && acc !== "glasses") acc = pick(["none", "none", "glasses"]);
     // finish gated by rarity: commons are plain, top tiers are flashy
     const mr = rnd();
     let material;
@@ -416,7 +418,7 @@ const Skins = (() => {
     if (m === "smile") { c.strokeStyle = ink; c.lineWidth = .028 * S; c.lineCap = "round"; c.beginPath(); c.arc(mx, my - headR * .12, headR * .26, Math.PI * 0.18, Math.PI * 0.82); c.stroke(); }
     else if (m === "fang") { c.strokeStyle = ink; c.lineWidth = .028 * S; c.lineCap = "round"; c.beginPath(); c.arc(mx, my - headR * .12, headR * .24, Math.PI * 0.2, Math.PI * 0.8); c.stroke(); c.fillStyle = "#fff"; c.beginPath(); c.moveTo(mx - headR * .07, my + headR * .02); c.lineTo(mx - headR * .03, my + headR * .17); c.lineTo(mx + headR * .02, my + headR * .02); c.closePath(); c.fill(); }
     else if (m === "beak") { c.fillStyle = "#ffb24a"; c.beginPath(); c.moveTo(mx - headR * .15, my - headR * .06); c.lineTo(mx + headR * .17, my); c.lineTo(mx - headR * .15, my + headR * .08); c.closePath(); c.fill(); }
-    else if (m === "whiskers") { c.strokeStyle = ink; c.lineWidth = .016 * S; [[-1, -.03], [-1, .03], [1, -.03], [1, .03]].forEach(w => { c.beginPath(); c.moveTo(mx + w[0] * headR * .05, my + w[1] * S); c.lineTo(mx + w[0] * headR * .5, my + w[1] * S * 2.6); c.stroke(); }); c.fillStyle = ink; circle(c, mx, my, headR * .045); c.fill(); }
+    else if (m === "whiskers") { c.strokeStyle = ink; c.lineWidth = .025 * S; c.lineCap = "round"; c.beginPath(); c.arc(mx, my - headR * .1, headR * .2, Math.PI * 0.2, Math.PI * 0.8); c.stroke(); c.lineWidth = .013 * S; [[-1, 0], [-1, .05], [1, 0], [1, .05]].forEach(w => { c.beginPath(); c.moveTo(mx + w[0] * headR * .14, my + w[1] * S); c.lineTo(mx + w[0] * headR * .55, my + w[1] * S - .008 * S); c.stroke(); }); c.fillStyle = ink; circle(c, mx, my - headR * .05, headR * .04); c.fill(); }
   }
 
   // build a body silhouette PATH for an archetype shape
@@ -424,7 +426,7 @@ const Skins = (() => {
     const cx = x + w / 2, cy = y + h / 2; c.beginPath();
     if (shape === "ball" || shape === "egg" || shape === "round") c.ellipse(cx, cy, w / 2, h / 2, 0, 0, 7);
     else if (shape === "capsule") { const r = Math.min(w, h) / 2; c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
-    else if (shape === "teardrop") { c.moveTo(cx, y + h * 0.06); c.bezierCurveTo(x + w * 1.06, y + h * 0.22, x + w * 0.94, y + h * 0.9, cx, y + h); c.bezierCurveTo(x + w * 0.06, y + h * 0.9, x - w * 0.06, y + h * 0.22, cx, y + h * 0.06); }
+    else if (shape === "teardrop") { c.moveTo(cx, y + h * 0.05); c.bezierCurveTo(x + w * 1.05, y + h * 0.26, x + w * 0.74, y + h, cx, y + h); c.bezierCurveTo(x + w * 0.26, y + h, x - w * 0.05, y + h * 0.26, cx, y + h * 0.05); }
     else if (shape === "pear") { c.moveTo(cx, y); c.bezierCurveTo(x + w * 0.88, y - h * 0.02, x + w * 1.06, y + h * 0.62, cx, y + h); c.bezierCurveTo(x - w * 0.06, y + h * 0.62, x + w * 0.12, y - h * 0.02, cx, y); }
     else if (shape === "bean") { c.moveTo(x + w * 0.04, cy); c.bezierCurveTo(x - w * 0.04, y + h * 0.18, x + w * 0.34, y - h * 0.06, x + w * 0.6, y + h * 0.14); c.bezierCurveTo(x + w * 0.82, y + h * 0.3, x + w * 1.06, y + h * 0.5, x + w * 0.88, y + h * 0.82); c.bezierCurveTo(x + w * 0.68, y + h * 1.06, x + w * 0.2, y + h * 1.0, x + w * 0.08, y + h * 0.72); c.bezierCurveTo(x - w * 0.02, y + h * 0.54, x + w * 0.04, y + h * 0.34, x + w * 0.04, cy); c.closePath(); }
     else if (shape === "blob") { const n = 11; for (let i = 0; i <= n; i++) { const a = i / n * 6.283; const wob = 1 + Math.sin(i * 2.3) * 0.08 + Math.cos(i * 1.4) * 0.05; const px = cx + Math.cos(a) * (w / 2) * wob, py = cy + Math.sin(a) * (h / 2) * wob; i ? c.lineTo(px, py) : c.moveTo(px, py); } c.closePath(); }
@@ -471,14 +473,14 @@ const Skins = (() => {
     // ---- legs (behind body) ----
     c.strokeStyle = dark; c.lineCap = "round";
     if (A.legs === "stick") {
-      c.lineWidth = 0.10 * S; const lt = bBot - 0.01 * S;
-      const leg = (dx, sw) => { c.beginPath(); c.moveTo(dx, lt); c.lineTo(dx + sw, 0); c.stroke(); };
+      c.lineWidth = 0.105 * S; const lt = bBot - 0.01 * S;
+      const leg = (dx, sw) => { c.beginPath(); c.moveTo(dx, lt); c.lineTo(dx + sw, 0); c.stroke(); c.fillStyle = dark; c.beginPath(); c.ellipse(dx + sw + 0.03 * S, 0.005 * S, 0.1 * S, 0.058 * S, 0, 0, 7); c.fill(); };
       if (pose === "run") { const sp = Math.sin(phase) * 0.13 * S; leg(-0.12 * S, sp); leg(0.13 * S, -sp); }
       else if (pose === "jump") { leg(-0.10 * S, -0.12 * S); leg(0.13 * S, -0.18 * S); }
       else { leg(-0.14 * S, 0); leg(0.12 * S, 0); }
     } else if (A.legs === "quad") {
       c.lineWidth = 0.075 * S; const lt = bBot - 0.01 * S;
-      [-0.34, -0.12, 0.12, 0.34].forEach((f, i) => { const sw = pose === "run" ? Math.sin(phase + i * 1.6) * 0.05 * S : 0; c.beginPath(); c.moveTo(f * bw, lt); c.lineTo(f * bw + sw, 0); c.stroke(); });
+      [-0.34, -0.12, 0.12, 0.34].forEach((f, i) => { const sw = pose === "run" ? Math.sin(phase + i * 1.6) * 0.05 * S : 0; c.beginPath(); c.moveTo(f * bw, lt); c.lineTo(f * bw + sw, 0); c.stroke(); c.fillStyle = dark; c.beginPath(); c.ellipse(f * bw + sw, 0.005 * S, 0.06 * S, 0.04 * S, 0, 0, 7); c.fill(); });
     } else if (A.legs === "stub") {
       c.fillStyle = dark; const a1 = pose === "run" ? Math.sin(phase) * 0.04 * S : 0;
       c.beginPath(); c.ellipse(-bw * 0.24, bBot + 0.05 * S - Math.max(0, a1), 0.15 * S, 0.095 * S, 0, 0, 7); c.fill();
@@ -512,10 +514,12 @@ const Skins = (() => {
 
     // ---- arms (little limbs for character) ----
     if (tr.archetype !== "slug" && tr.archetype !== "quad") {
-      c.strokeStyle = dark; c.lineWidth = 0.085 * S; c.lineCap = "round";
-      const ay = bTop + bh * 0.5, sw = pose === "run" ? Math.sin(phase + Math.PI) * 0.08 * S : pose === "jump" ? -0.12 * S : 0.02 * S;
-      c.beginPath(); c.moveTo(bx + bw * 0.1, ay); c.lineTo(bx - bw * 0.04, ay + 0.13 * S - sw); c.stroke();
-      c.beginPath(); c.moveTo(bx + bw * 0.9, ay); c.lineTo(bx + bw * 1.04, ay + 0.13 * S + sw); c.stroke();
+      c.strokeStyle = dark; c.lineWidth = 0.1 * S; c.lineCap = "round";
+      const ay = bTop + bh * 0.4, sw = pose === "run" ? Math.sin(phase + Math.PI) * 0.08 * S : pose === "jump" ? -0.12 * S : 0.02 * S;
+      const lx = bx - bw * 0.03, ly = ay + 0.14 * S - sw, rx = bx + bw * 1.03, ry = ay + 0.14 * S + sw;
+      c.beginPath(); c.moveTo(bx + bw * 0.12, ay); c.lineTo(lx, ly); c.stroke();
+      c.beginPath(); c.moveTo(bx + bw * 0.88, ay); c.lineTo(rx, ry); c.stroke();
+      c.fillStyle = dark; c.beginPath(); c.arc(lx, ly, 0.072 * S, 0, 7); c.fill(); c.beginPath(); c.arc(rx, ry, 0.072 * S, 0, 7); c.fill();
     }
 
     // ---- head (separate) + ears (rooted, no float) ----
@@ -588,13 +592,13 @@ const Skins = (() => {
   function drawAcc(c, tr, hx, hy, headR, bw, bh, bTop, ex, ey, acc, ink, S) {
     const a = tr.acc;
     if (a === "scarf") { c.fillStyle = acc; rr(c, -bw * 0.34, bTop - 0.02 * S, bw * 0.68, 0.12 * S, 0.04 * S); c.fill(); }
-    else if (a === "cap") { c.fillStyle = acc; rr(c, hx - headR * .9, hy - headR * 1.05, headR * 1.8, headR * .55, headR * .25); c.fill(); c.fillRect(hx + headR * .2, hy - headR * .6, headR * .9, headR * .18); }
+    else if (a === "cap") { const ccy = hy - headR * 0.34; c.fillStyle = acc; c.strokeStyle = ink; c.lineWidth = .025 * S; c.beginPath(); c.arc(hx, ccy, headR * 0.8, Math.PI, 2 * Math.PI); c.closePath(); c.fill(); c.stroke(); c.fillStyle = "#ffffff44"; c.beginPath(); c.arc(hx - headR * .3, ccy - headR * .12, headR * .15, 0, 7); c.fill(); c.fillStyle = "#fff0b0"; c.beginPath(); c.arc(hx, ccy - headR * 0.8, headR * .12, 0, 7); c.fill(); c.strokeStyle = ink; c.lineWidth = .016 * S; c.beginPath(); c.arc(hx, ccy - headR * 0.8, headR * .12, 0, 7); c.stroke(); }
     else if (a === "glasses") { c.strokeStyle = ink; c.lineWidth = .035 * S; circle(c, ex, ey, .085 * S); c.stroke(); circle(c, ex - .19 * S, ey, .085 * S); c.stroke(); c.beginPath(); c.moveTo(ex - .085 * S, ey); c.lineTo(ex - .105 * S, ey); c.stroke(); }
     else if (a === "visor") { c.fillStyle = "#0e1326cc"; rr(c, ex - .30 * S, ey - .09 * S, .42 * S, .17 * S, .06 * S); c.fill(); c.fillStyle = acc; rr(c, ex - .30 * S, ey - .12 * S, .42 * S, .05 * S, .02 * S); c.fill(); }
     else if (a === "headphones") { c.strokeStyle = ink; c.lineWidth = .05 * S; c.beginPath(); c.arc(hx, hy, headR * 1.05, Math.PI * 1.15, Math.PI * 1.85); c.stroke(); c.fillStyle = acc; [[-1], [1]].forEach(s => { rr(c, hx + s[0] * headR * 1.0 - headR * .12, hy - headR * .2, headR * .24, headR * .4, headR * .1); c.fill(); }); }
     else if (a === "bowtie") { c.fillStyle = acc; const by = bTop + 0.02 * S; c.beginPath(); c.moveTo(0, by); c.lineTo(-.12 * S, by - .07 * S); c.lineTo(-.12 * S, by + .07 * S); c.closePath(); c.fill(); c.beginPath(); c.moveTo(0, by); c.lineTo(.12 * S, by - .07 * S); c.lineTo(.12 * S, by + .07 * S); c.closePath(); c.fill(); }
     else if (a === "flower") { c.fillStyle = acc; const fx = hx - headR * .7, fy = hy - headR * .75; for (let i = 0; i < 5; i++) { const ang = i / 5 * 6.283; circle(c, fx + Math.cos(ang) * .06 * S, fy + Math.sin(ang) * .06 * S, .045 * S); c.fill(); } c.fillStyle = "#ffce4a"; circle(c, fx, fy, .04 * S); c.fill(); }
-    else if (a === "crown") { c.fillStyle = "#ffce4a"; const cy0 = hy - headR * 0.95, cw = headR * 1.3; c.beginPath(); c.moveTo(hx - cw / 2, cy0 + headR * .3); for (let i = 0; i <= 4; i++) { const px = hx - cw / 2 + (cw / 4) * i; c.lineTo(px, cy0 + (i % 2 ? headR * .3 : -headR * .15)); } c.lineTo(hx + cw / 2, cy0 + headR * .3); c.closePath(); c.fill(); }
+    else if (a === "crown") { c.fillStyle = "#ffce4a"; c.strokeStyle = "#e0a92e"; c.lineWidth = .02 * S; const cy0 = hy - headR * 0.78, cw = headR * 1.25; c.beginPath(); c.moveTo(hx - cw / 2, cy0 + headR * .34); for (let i = 0; i <= 4; i++) { const px = hx - cw / 2 + (cw / 4) * i; c.lineTo(px, cy0 + (i % 2 ? headR * .34 : -headR * .12)); } c.lineTo(hx + cw / 2, cy0 + headR * .34); c.closePath(); c.fill(); c.stroke(); c.fillStyle = "#ff6ea9"; [-0.3, 0, 0.3].forEach(o => { c.beginPath(); c.arc(hx + o * cw, cy0 - headR * .04, headR * .07, 0, 7); c.fill(); }); }
   }
 
   function star(c, cx, cy, r, n) {
