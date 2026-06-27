@@ -54,7 +54,9 @@
   #jumpBtn.on{border-color:var(--gold);color:var(--gold);transform:scale(.97)}
   body.playing .ctrl{display:grid}
   @media (orientation:landscape){
-    .ctrl{height:74px;width:min(60vw,420px);margin-top:2px}
+    /* compact pill in landscape (the short board needs the height; tap anywhere still jumps) */
+    .ctrl{height:46px;width:min(44vw,230px);font-size:14px;letter-spacing:2px;
+      margin:3px auto max(10px,env(safe-area-inset-bottom))}
   }
   /* tap ANYWHERE (below the top HUD) to jump while playing */
   #tapZone{position:absolute;left:0;right:0;top:54px;bottom:0;z-index:3;display:none;touch-action:none;cursor:pointer}
