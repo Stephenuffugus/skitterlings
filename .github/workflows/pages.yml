@@ -1,8 +1,9 @@
 name: Deploy to GitHub Pages
 
+# Optional: only needed if you set Settings → Pages → Source = "GitHub Actions".
+# Simplest path needs NO workflow: Settings → Pages → "Deploy from a branch" → main → /root.
+# Manual-only trigger so it never auto-fails before Pages is enabled.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
