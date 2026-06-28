@@ -86,6 +86,12 @@
   .btn:active{transform:translateY(1px)}
   .btn.alt{background:var(--panel2);color:var(--ink);border:1px solid var(--line)}
   .btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--line);font-weight:700}
+  .btn.cascade{color:#0a1f1a;background:linear-gradient(90deg,#8df0c8,#5ce1e6);letter-spacing:2px}
+  .btn.sm{padding:9px 6px;font-size:12px;font-weight:700;letter-spacing:0;flex:1}
+  .btn:disabled{opacity:.4;cursor:default}
+  .craftrow{display:flex;gap:6px;width:100%;max-width:340px}
+  .piece{display:inline-block;width:11px;height:11px;transform:rotate(45deg);border-radius:2px;
+    background:linear-gradient(135deg,#bff7ff,var(--cyan));vertical-align:-1px;margin-right:3px}
   .btn:disabled{opacity:.45;cursor:not-allowed}
   .sheet-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:10px}
   .sheet-head h2{margin:0;font-size:20px;letter-spacing:1px}
@@ -135,10 +141,12 @@
 
   /* Vault / roll */
   #hatchStage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px}
-  #hatchCanvas{width:200px;height:200px}
+  #hatchCanvas{width:200px;height:200px;border-radius:26px}
   .rar-pill{font-weight:900;letter-spacing:2px;text-transform:uppercase;font-size:14px;padding:6px 16px;border-radius:999px}
   .pop{animation:pop .5s cubic-bezier(.2,1.4,.4,1)}
   @keyframes pop{0%{transform:scale(.2);opacity:0}60%{transform:scale(1.12)}100%{transform:scale(1)}}
+  #hatchCanvas.reveal{animation:pop .5s cubic-bezier(.2,1.4,.4,1),glowpulse .85s ease}
+  @keyframes glowpulse{0%{box-shadow:0 0 0 0 var(--rg,transparent)}40%{box-shadow:0 0 40px 8px var(--rg,transparent)}100%{box-shadow:0 0 0 0 transparent}}
   .muted{color:var(--muted)} .center{text-align:center}
   .big{font-size:34px;font-weight:900;letter-spacing:1px}
   .newbest{display:none;color:var(--gold);font-weight:900;letter-spacing:3px;text-align:center;
@@ -180,9 +188,11 @@
     <div class="favbar" id="favBar"></div>
     <div class="menu-btns">
       <button class="btn" id="playBtn">PLAY</button>
+      <button class="btn cascade" id="cascadeBtn">⚡ CASCADE MODE</button>
       <button class="btn alt" id="collectionBtn">Skitterlings</button>
       <button class="btn alt" id="hatchOpenBtn">Vault · Roll a Skitterling</button>
       <button class="btn alt" id="themesBtn">Worlds</button>
+      <button class="btn alt" id="shopBtn">Boosters</button>
     </div>
     <div class="center muted" style="margin-top:18px;font-size:11px">Best&nbsp;<span id="bestTitle">0</span> · <span id="worldsTitle">0</span> worlds</div>
     <div class="center muted" style="margin-top:6px;font-size:9px;letter-spacing:1px;opacity:.55" id="buildStamp"></div>
@@ -234,6 +244,16 @@
   </div>
 </div>
 
+<!-- Boosters / shop -->
+<div class="screen" id="shopScreen">
+  <div class="scroll">
+    <div class="sheet-head"><h2>Boosters</h2><button class="icon-btn" data-close>✕</button></div>
+    <div class="muted" style="font-size:12px">Spend coins on boosters. Everything here is earnable by playing — nothing gates skins or worlds.</div>
+    <div id="shopCoins" class="center" style="margin:10px 0 2px;font-weight:800"></div>
+    <div id="shopList"></div>
+  </div>
+</div>
+
 <!-- Vault -->
 <div class="screen" id="hatchScreen">
   <div class="sheet-head" style="padding:14px 16px 0"><h2>The Vault</h2><button class="icon-btn" data-close>✕</button></div>
@@ -246,6 +266,14 @@
       <button class="btn alt" id="equipRolledBtn" style="display:none">Equip</button>
       <button class="btn ghost favreveal" id="favRolledBtn" style="display:none">☆ Add to Favourites</button>
     </div>
+    <div id="hatchPieces" class="center muted" style="font-size:11px;margin-top:2px"></div>
+    <div class="craftrow">
+      <button class="btn ghost sm" id="craftRare">Rare+ · <span class="piece"></span>40</button>
+      <button class="btn ghost sm" id="craftEpic">Epic+ · <span class="piece"></span>120</button>
+      <button class="btn ghost sm" id="craftLegend">Legend+ · <span class="piece"></span>300</button>
+    </div>
+    <button class="btn ghost" id="oddsBtn" style="font-size:11px;padding:7px 12px">Drop rates ▾</button>
+    <div id="oddsBox" class="muted center" style="display:none;font-size:11px;line-height:1.7;max-width:300px"></div>
   </div>
 </div>
 
@@ -447,6 +475,16 @@ const Skins = (() => {
     lump:      { shape: "ball",     bw: .94, bh: .54, hr: .27, head: "merged", legs: "stub",  faceY: .30 },
   };
 
+  // showcase body motion — whole-creature bob/sway/lean for the vault & collection.
+  // Returns null for "run"/"jump"/idle so the in-game runner is byte-identical.
+  function poseMotion(pose, phase) {
+    if (pose === "idle")   return { dy: Math.sin(phase * 1.4) * 0.012, rot: Math.sin(phase * 0.7) * 0.015 };
+    if (pose === "walk")   return { dy: -Math.abs(Math.sin(phase)) * 0.02, rot: Math.sin(phase) * 0.02 };
+    if (pose === "dance")  return { dx: Math.sin(phase * 1.1) * 0.05, dy: -Math.abs(Math.sin(phase * 2.2)) * 0.03, rot: Math.sin(phase * 1.1) * 0.10 };
+    if (pose === "kungfu") return { dx: Math.max(0, Math.sin(phase * 3)) * 0.04, dy: -Math.abs(Math.sin(phase * 2)) * 0.02, rot: Math.sin(phase * 2) * 0.06 };
+    return null;
+  }
+
   function draw(c, tr, fx, footY, S, pose, phase) {
     const M = MATMOD[tr.material] || MATMOD.matte;
     const s = clamp(tr.sat + M.ds, 8, 98), L = M.l;
@@ -456,6 +494,9 @@ const Skins = (() => {
     const A = ARCHDEF[tr.archetype] || ARCHDEF.tower;
     c.save(); c.translate(fx, footY);
     if (A.hover) c.translate(0, Math.sin(phase * 0.9) * 0.04 * S - 0.06 * S);
+    const stepping = pose === "run" || pose === "walk" || pose === "dance" || pose === "kungfu";
+    const PM = poseMotion(pose, phase);
+    if (PM) { c.translate((PM.dx || 0) * S, (PM.dy || 0) * S); if (PM.rot) c.rotate(PM.rot); }
 
     const bw = A.bw * S, bh = A.bh * S, hr = A.hr * S, bx = -bw / 2;
     const legL = A.legs === "stick" ? 0.24 * S : A.legs === "none" ? 0.03 * S : 0.07 * S;
@@ -476,14 +517,14 @@ const Skins = (() => {
     if (A.legs === "stick") {
       c.lineWidth = 0.105 * S; const lt = bBot - 0.01 * S;
       const leg = (dx, sw) => { c.beginPath(); c.moveTo(dx, lt); c.lineTo(dx + sw, 0); c.stroke(); c.fillStyle = dark; c.beginPath(); c.ellipse(dx + sw + 0.03 * S, 0.005 * S, 0.1 * S, 0.058 * S, 0, 0, 7); c.fill(); };
-      if (pose === "run") { const sp = Math.sin(phase) * 0.13 * S; leg(-0.12 * S, sp); leg(0.13 * S, -sp); }
+      if (stepping) { const sp = Math.sin(phase) * 0.13 * S; leg(-0.12 * S, sp); leg(0.13 * S, -sp); }
       else if (pose === "jump") { leg(-0.10 * S, -0.12 * S); leg(0.13 * S, -0.18 * S); }
       else { leg(-0.14 * S, 0); leg(0.12 * S, 0); }
     } else if (A.legs === "quad") {
       c.lineWidth = 0.075 * S; const lt = bBot - 0.01 * S;
-      [-0.34, -0.12, 0.12, 0.34].forEach((f, i) => { const sw = pose === "run" ? Math.sin(phase + i * 1.6) * 0.05 * S : 0; c.beginPath(); c.moveTo(f * bw, lt); c.lineTo(f * bw + sw, 0); c.stroke(); c.fillStyle = dark; c.beginPath(); c.ellipse(f * bw + sw, 0.005 * S, 0.06 * S, 0.04 * S, 0, 0, 7); c.fill(); });
+      [-0.34, -0.12, 0.12, 0.34].forEach((f, i) => { const sw = stepping ? Math.sin(phase + i * 1.6) * 0.05 * S : 0; c.beginPath(); c.moveTo(f * bw, lt); c.lineTo(f * bw + sw, 0); c.stroke(); c.fillStyle = dark; c.beginPath(); c.ellipse(f * bw + sw, 0.005 * S, 0.06 * S, 0.04 * S, 0, 0, 7); c.fill(); });
     } else if (A.legs === "stub") {
-      c.fillStyle = dark; const a1 = pose === "run" ? Math.sin(phase) * 0.04 * S : 0;
+      c.fillStyle = dark; const a1 = stepping ? Math.sin(phase) * 0.04 * S : 0;
       c.beginPath(); c.ellipse(-bw * 0.24, bBot + 0.05 * S - Math.max(0, a1), 0.15 * S, 0.095 * S, 0, 0, 7); c.fill();
       c.beginPath(); c.ellipse(bw * 0.24, bBot + 0.05 * S - Math.max(0, -a1), 0.15 * S, 0.095 * S, 0, 0, 7); c.fill();
     } else { c.fillStyle = dark; c.globalAlpha = 0.22; c.beginPath(); c.ellipse(0, 0, bw * 0.34, 0.05 * S, 0, 0, 7); c.fill(); c.globalAlpha = 1; }
@@ -505,7 +546,7 @@ const Skins = (() => {
     const ag = c.createLinearGradient(0, bTop + bh * 0.5, 0, bTop + bh); ag.addColorStop(0, "#00000000"); ag.addColorStop(1, "#00000036"); c.fillStyle = ag; c.fillRect(bx, bTop, bw, bh);
     // pattern (clipped to body)
     if (tr.pattern === "belly") { c.fillStyle = belly; c.beginPath(); c.ellipse(hx * 0.5, bTop + bh * 0.64, bw * 0.3, bh * 0.3, 0, 0, 7); c.fill(); }
-    else if (tr.pattern === "spots") { c.fillStyle = dark; [[-.12, .08], [.13, -.02], [.0, .18]].forEach(p => { circle(c, p[0] * S, bMid + p[1] * S, .05 * S); c.fill(); }); }
+    else if (tr.pattern === "spots") { c.fillStyle = dark; const sp = [[-.12, .08], [.13, -.02], [.0, .18]]; if (S > 110) sp.push([-.04, -.12], [.19, .12], [-.2, -.04]); sp.forEach(p => { circle(c, p[0] * S, bMid + p[1] * S, .05 * S); c.fill(); }); }
     else if (tr.pattern === "stripe") { c.fillStyle = dark; for (let k = -1; k <= 1; k++) c.fillRect(k * 0.17 * S - 0.02 * S, bTop, 0.045 * S, bh); }
     else if (tr.pattern === "patch") { c.fillStyle = dark; circle(c, bw * 0.18, bMid + 0.04 * S, 0.18 * S); c.fill(); }
     else if (tr.pattern === "star") { c.fillStyle = belly; star(c, 0, bMid, 0.15 * S, 5); c.fill(); }
@@ -516,8 +557,13 @@ const Skins = (() => {
     // ---- arms (little limbs for character) ----
     if (tr.archetype !== "slug" && tr.archetype !== "quad") {
       c.strokeStyle = dark; c.lineWidth = 0.1 * S; c.lineCap = "round";
-      const ay = bTop + bh * 0.4, sw = pose === "run" ? Math.sin(phase + Math.PI) * 0.08 * S : pose === "jump" ? -0.12 * S : 0.02 * S;
-      const lx = bx - bw * 0.03, ly = ay + 0.14 * S - sw, rx = bx + bw * 1.03, ry = ay + 0.14 * S + sw;
+      const ay = bTop + bh * 0.4;
+      const sw = pose === "dance" ? Math.sin(phase * 1.1) * 0.18 * S
+        : pose === "kungfu" ? Math.sin(phase * 3) * 0.12 * S
+        : stepping ? Math.sin(phase + Math.PI) * 0.08 * S
+        : pose === "jump" ? -0.12 * S : 0.02 * S;
+      const jab = pose === "kungfu" ? Math.max(0, Math.sin(phase * 3)) * 0.22 * S : 0;   // front-arm punch
+      const lx = bx - bw * 0.03, ly = ay + 0.14 * S - sw, rx = bx + bw * 1.03 + jab, ry = ay + 0.14 * S + sw - jab * 0.4;
       c.beginPath(); c.moveTo(bx + bw * 0.12, ay); c.lineTo(lx, ly); c.stroke();
       c.beginPath(); c.moveTo(bx + bw * 0.88, ay); c.lineTo(rx, ry); c.stroke();
       c.fillStyle = dark; c.beginPath(); c.arc(lx, ly, 0.072 * S, 0, 7); c.fill(); c.beginPath(); c.arc(rx, ry, 0.072 * S, 0, 7); c.fill();
@@ -1173,7 +1219,10 @@ const SAVE_KEY = "skitterlings_save_v1" + (SK_UID ? ":" + SK_UID : "");
 function defaultSave() {
   return { coins: 0, best: 0, owned: ["starter"], equipped: "starter", favorites: [],
            themes: [THEMES[0].id], theme: THEMES[0].id, muted: false, reached: 0,
-           dexClaimed: 0, dexComplete: false, bestCombo: 0 };
+           dexClaimed: 0, dexComplete: false, bestCombo: 0,
+           bestCascade: 0,                                  // WS2: dedicated Cascade-mode best
+           pieces: 0, sinceEpic: 0,                          // WS3: shard count + rarity pity counter
+           coinDoubler: false, shields: 0, magnets: 0, rarityBoosts: 0 };  // WS4: economy inventory
 }
 // how many of the 415 NAMED skitterlings the player has collected
 function dexCount() { return save.owned.reduce((n, s) => n + (ROSTER_BY_NAME[String(s).toLowerCase()] ? 1 : 0), 0); }
@@ -1353,6 +1402,25 @@ function fx(x, y, vx, vy, g, life, size, color, shape) { if (G.fx.length > 260) 
 function dustPuff() { for (let i = 0; i < 5; i++) fx(CFG.runnerX - 6 + Math.random() * 8, CFG.groundY - 2, -60 - Math.random() * 80, -20 - Math.random() * 40, 60, 0.35 + Math.random() * 0.2, 3 + Math.random() * 3, "#ffffff", "puff"); }
 function landPuff() { for (let i = 0; i < 8; i++) fx(CFG.runnerX - 10 + Math.random() * 20, CFG.groundY - 2, (Math.random() * 2 - 1) * 130, -10 - Math.random() * 30, 80, 0.3 + Math.random() * 0.2, 3 + Math.random() * 4, "#ffffff", "puff"); }
 function coinPop(x, y) { for (let i = 0; i < 8; i++) { const a = Math.random() * 6.283; fx(x, y, Math.cos(a) * 120, Math.sin(a) * 120 - 40, 120, 0.4 + Math.random() * 0.3, 2 + Math.random() * 2, "#ffe17a", "spark"); } }
+function drawPickup(c, p) {
+  const yy = p.y + Math.sin(p.ph) * 3, r = p.r;
+  c.save(); c.translate(p.x, yy);
+  if (p.type === "shard") {
+    c.shadowColor = "#7fe6ff"; c.shadowBlur = 12; c.fillStyle = "#bff7ff";
+    c.beginPath(); c.moveTo(0, -r); c.lineTo(r * 0.7, 0); c.lineTo(0, r); c.lineTo(-r * 0.7, 0); c.closePath(); c.fill();
+    c.shadowBlur = 0; c.fillStyle = "#ffffffbb"; c.beginPath(); c.moveTo(0, -r); c.lineTo(r * 0.7, 0); c.lineTo(0, 0); c.closePath(); c.fill();
+  } else if (p.type === "shield") {
+    c.shadowColor = "#7fe6ff"; c.shadowBlur = 12; c.fillStyle = "#5ce1e6";
+    c.beginPath(); c.moveTo(0, -r); c.quadraticCurveTo(r, -r * 0.7, r, 0); c.quadraticCurveTo(r, r * 0.85, 0, r * 1.05); c.quadraticCurveTo(-r, r * 0.85, -r, 0); c.quadraticCurveTo(-r, -r * 0.7, 0, -r); c.closePath(); c.fill();
+    c.shadowBlur = 0; c.strokeStyle = "#0e1326"; c.lineWidth = 2; c.lineCap = "round"; c.beginPath(); c.moveTo(-r * 0.4, 0); c.lineTo(-r * 0.08, r * 0.42); c.lineTo(r * 0.5, -r * 0.42); c.stroke();
+  } else {  // magnet — red horseshoe with white tips
+    c.shadowColor = "#ff8aa0"; c.shadowBlur = 10; c.lineCap = "butt";
+    c.strokeStyle = "#e6356f"; c.lineWidth = r * 0.5; c.beginPath(); c.arc(0, -r * 0.1, r * 0.62, Math.PI, 0); c.stroke();
+    c.beginPath(); c.moveTo(-r * 0.62, -r * 0.1); c.lineTo(-r * 0.62, r * 0.5); c.moveTo(r * 0.62, -r * 0.1); c.lineTo(r * 0.62, r * 0.5); c.stroke();
+    c.shadowBlur = 0; c.strokeStyle = "#fff"; c.lineWidth = r * 0.5; c.beginPath(); c.moveTo(-r * 0.62, r * 0.4); c.lineTo(-r * 0.62, r * 0.6); c.moveTo(r * 0.62, r * 0.4); c.lineTo(r * 0.62, r * 0.6); c.stroke();
+  }
+  c.restore();
+}
 function hitBurst(x, y) { for (let i = 0; i < 20; i++) { const a = Math.random() * 6.283, sp = 90 + Math.random() * 240; fx(x, y, Math.cos(a) * sp, Math.sin(a) * sp, 200, 0.4 + Math.random() * 0.45, 2 + Math.random() * 4, i % 2 ? "#ff6b6b" : "#ffffff", "spark"); } G.shake = 11; }
 function updateFx(dt) {
   for (const p of G.fx) { p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; }
@@ -1427,7 +1495,9 @@ const CFG = {
   gravity: 2600, jumpV: -980, jumpCut: 0.42, coyote: 0.09, buffer: 0.13,
   speed0: 340, speedMax: 1400, speedRamp: 0.5,   // keeps accelerating much longer before plateauing
   coinEvery: 420, flyAfter: 200,          // coinEvery↑ = slower passive trickle (coins were too easy)
-  stageLen: 240, stageFade: 2.0
+  stageLen: 240, stageFade: 2.0,
+  // ---- Cascade mode (WS2): periodic slowdown waves that each raise the multiplier ----
+  waveEvery: 9, slowIn: 0.5, slowHold: 1.6, slowOut: 0.7, slowFactor: 0.5, cMultCap: 30
 };
 const cv = document.getElementById("game"), ctx = cv.getContext("2d");
 let DPR = 1, scale = 1;
@@ -1447,6 +1517,8 @@ const G = {
   holdJump: false, coyoteT: 0, jumpBuf: 0,
   fx: [], shake: 0, squash: 0, banner: null, bannerT: 0,
   combo: 0, comboT: 0, mult: 1, bestCombo: 0,
+  gameMode: "endless", cMult: 1, waveT: 9, slowEl: -1, slowScale: 1, cScoreF: 0,   // Cascade state
+  pickups: [], shield: false, invulnT: 0, magnetT: 0, magnetRun: false,            // WS4 pickups/boosters
   chase: { state: "gone", x: 9999, t: 3, vx: 0, glance: 0 },
   stageIdx: 0, stageA: THEMES[0].id, stageB: THEMES[0].id, blend: 0, transitioning: false, stageNext: 0,
   maxStage: 0
@@ -1455,6 +1527,29 @@ function addCombo() {
   G.combo++; G.comboT = 2.6; G.mult = Math.min(5, 1 + Math.floor(G.combo / 5));
   if (G.combo > G.bestCombo) G.bestCombo = G.combo;
   if (G.combo === 10 || G.combo === 25 || G.combo === 50 || (G.combo >= 100 && G.combo % 50 === 0)) { pushBanner(G.combo + "× COMBO!"); G.shake = Math.max(G.shake, 6); }
+}
+
+/* Cascade mode: every wave the world eases into slow-motion (breaking your rhythm)
+   and your score multiplier ticks up by 1. Survive the denser slow phase to bank it. */
+function updateCascade(dt) {
+  G.waveT -= dt;
+  if (G.waveT <= 0 && G.slowEl < 0) {                       // kick off a new slowdown wave
+    G.slowEl = 0;
+    G.cMult = Math.min(CFG.cMultCap, G.cMult + 1);
+    pushBanner("CASCADE ×" + G.cMult); G.shake = Math.max(G.shake, 5); Sfx.stage();
+    G.waveT = Math.max(4, CFG.waveEvery - G.cMult * 0.15);   // waves creep closer together as it climbs
+  }
+  if (G.slowEl >= 0) {
+    G.slowEl += dt;
+    const total = CFG.slowIn + CFG.slowHold + CFG.slowOut;
+    let f;
+    if (G.slowEl < CFG.slowIn) f = G.slowEl / CFG.slowIn;                                   // ease in
+    else if (G.slowEl < CFG.slowIn + CFG.slowHold) f = 1;                                    // hold slow
+    else if (G.slowEl < total) f = 1 - (G.slowEl - CFG.slowIn - CFG.slowHold) / CFG.slowOut; // ease out
+    else { G.slowEl = -1; f = 0; }
+    const sm = f * f * (3 - 2 * f);                          // smoothstep
+    G.slowScale = 1 - sm * (1 - CFG.slowFactor);
+  } else G.slowScale = 1;
 }
 
 function applyStartWorld() {
@@ -1469,6 +1564,8 @@ function reset() {
   G.holdJump = false; G.coyoteT = 0; G.jumpBuf = 0;
   G.fx = []; G.shake = 0; G.squash = 0; G.banner = null; G.bannerT = 0;
   G.combo = 0; G.comboT = 0; G.mult = 1; G.bestCombo = 0;
+  G.gameMode = "endless"; G.cMult = 1; G.waveT = CFG.waveEvery; G.slowEl = -1; G.slowScale = 1; G.cScoreF = 0;
+  G.pickups = []; G.shield = false; G.invulnT = 0; G.magnetT = 0; G.magnetRun = false;
   G.chase = { state: "gone", x: CFG.GW + 200, t: 2.5 + Math.random() * 2.5, vx: 0, glance: 0 };
   applyStartWorld();
 }
@@ -1562,8 +1659,16 @@ function spawn() {
     const n = 1 + (Math.random() < 0.3 ? 1 : 0);
     for (let i = 0; i < n; i++) G.coins.push({ x: CFG.GW + 160 + i * 30, y: cy - i * 8, r: 8, got: false });
   }
+  // occasional floating pickup — shard (pieces) common, shield/magnet rarer
+  const pr = Math.random();
+  const ptype = pr < 0.08 ? "shard" : pr < 0.12 ? "shield" : pr < 0.16 ? "magnet" : null;
+  if (ptype) {
+    const py = CFG.groundY - (0.7 + Math.random() * 0.7) * CFG.S;
+    G.pickups.push({ x: CFG.GW + 220, y: py, r: 13, type: ptype, got: false, ph: Math.random() * 6.28 });
+  }
   const gap = (0.95 + Math.random() * 0.5) * (G.speed / CFG.speed0 * 0.7 + 0.3);
   G.spawnIn = (230 + Math.random() * 150) / G.speed * gap;
+  if (G.gameMode === "cascade") G.spawnIn *= (0.6 + 0.4 * G.slowScale);   // slow phase packs obstacles tighter
 }
 
 function hitbox() {
@@ -1578,8 +1683,11 @@ function update(dt) {
   if (G.mode === "attract") { G.phase += dt * 9; G.dist += 120 * dt; return; }
   if (G.mode !== "playing") return;
 
-  G.speed = Math.min(CFG.speedMax, CFG.speed0 + G.score * CFG.speedRamp);
-  G.dist += G.speed * dt; G.score = Math.floor(G.dist / 10);
+  if (G.gameMode === "cascade") updateCascade(dt);
+  G.speed = Math.min(CFG.speedMax, CFG.speed0 + G.score * CFG.speedRamp) * G.slowScale;
+  G.dist += G.speed * dt;
+  if (G.gameMode === "cascade") { G.cScoreF += G.speed * dt * 0.1 * G.cMult; G.score = Math.floor(G.cScoreF); }
+  else G.score = Math.floor(G.dist / 10);
   G.phase += dt * (8 + G.speed / 90);
 
   // ---- journey: cross-fade forward through the 100 worlds ----
@@ -1605,6 +1713,8 @@ function update(dt) {
   } else G.onGround = false;
 
   if (G.comboT > 0) { G.comboT -= dt; if (G.comboT <= 0) { G.combo = 0; G.mult = 1; } }
+  if (G.invulnT > 0) G.invulnT -= dt;
+  if (G.magnetT > 0) G.magnetT -= dt;
   updateChase(dt);
   G.spawnIn -= dt; if (G.spawnIn <= 0) spawn();
   const hb = hitbox();
@@ -1619,14 +1729,45 @@ function update(dt) {
 
   G.coinAcc += G.speed * dt;
   if (G.coinAcc >= CFG.coinEvery) { G.coinAcc -= CFG.coinEvery; G.runCoins++; }
-  for (const c of G.coins) c.x -= G.speed * dt;
+  const magnetOn = G.magnetRun || G.magnetT > 0;
+  for (const c of G.coins) {
+    c.x -= G.speed * dt;
+    if (magnetOn && c.x < CFG.runnerX + 280) {                 // coin magnet: curve toward the runner
+      const k = Math.min(1, dt * 9); c.x += (CFG.runnerX - c.x) * k; c.y += (G.py - CFG.S * 0.5 - c.y) * k;
+    }
+  }
   G.coins = G.coins.filter(c => c.x > -20 && !c.got);
   for (const c of G.coins) {
     if (!c.got && hb.x < c.x + c.r && hb.x + hb.w > c.x - c.r && hb.y < c.y + c.r && hb.y + hb.h > c.y - c.r) {
       c.got = true; addCombo(); G.runCoins += G.mult; Sfx.coin(G.combo); coinPop(c.x, c.y);
     }
   }
-  for (const o of G.obstacles) if (overlap(hb, o)) return gameOver();
+  // pickups: move, collide, apply effect
+  for (const p of G.pickups) { p.x -= G.speed * dt; p.ph += dt * 4; }
+  G.pickups = G.pickups.filter(p => p.x > -30 && !p.got);
+  for (const p of G.pickups) {
+    if (!p.got && hb.x < p.x + p.r && hb.x + hb.w > p.x - p.r && hb.y < p.y + p.r && hb.y + hb.h > p.y - p.r) {
+      p.got = true; applyPickup(p);
+    }
+  }
+  // obstacle collision — a shield absorbs one hit (then brief invulnerability)
+  if (G.invulnT <= 0) {
+    for (const o of G.obstacles) {
+      if (overlap(hb, o)) {
+        if (G.shield) {
+          G.shield = false; G.invulnT = 0.9; G.shake = Math.max(G.shake, 7); Sfx.hit(); pushBanner("SHIELD!");
+          for (let k = 0; k < 14; k++) { const a = k / 14 * 6.283; fx(CFG.runnerX, G.py - CFG.S * 0.45, Math.cos(a) * 150, Math.sin(a) * 150 - 30, 60, 0.5, 3, "#bff7ff", "spark"); }
+        } else return gameOver();
+        break;
+      }
+    }
+  }
+}
+function applyPickup(p) {
+  if (p.type === "shard") { const n = 4 + Math.floor(Math.random() * 4); save.pieces = (save.pieces || 0) + n; persist(); toast("+" + n + " pieces"); }
+  else if (p.type === "shield") { G.shield = true; toast("Shield up!"); }
+  else if (p.type === "magnet") { G.magnetT = 6; toast("Coin magnet!"); }
+  Sfx.coin(); coinPop(p.x, p.y);
 }
 
 /* ---------- render ---------- */
@@ -1667,6 +1808,8 @@ function render() {
   drawGlimmer(ctx);
   // coins (bob)
   for (const c of G.coins) { if (c.got) continue; const yy = c.y + Math.sin(G.clock * 6 + c.x * 0.05) * 2; ctx.fillStyle = "#ffce4a"; ctx.beginPath(); ctx.arc(c.x, yy, c.r, 0, 7); ctx.fill(); ctx.fillStyle = "#b88600"; ctx.beginPath(); ctx.arc(c.x - 2, yy - 2, c.r * 0.5, 0, 7); ctx.fill(); }
+  // pickups (shard / shield / magnet)
+  for (const p of G.pickups) { if (!p.got) drawPickup(ctx, p); }
   // obstacles
   for (const o of G.obstacles) drawObstacle(ctx, o);
   // particles
@@ -1682,6 +1825,13 @@ function render() {
   else if (!G.onGround && G.mode === "playing") { const st = Math.min(0.2, Math.abs(G.vy) / 3200); sx = 1 - st * 0.6; sy = 1 + st; }
   ctx.save(); ctx.translate(CFG.runnerX, G.py); ctx.scale(sx, sy); ctx.translate(-CFG.runnerX, -G.py);
   Skins.draw(ctx, tr, CFG.runnerX, G.py, CFG.S, pose, G.phase); ctx.restore();
+  // shield bubble around the runner (blinks during post-hit invulnerability)
+  if ((G.shield || G.invulnT > 0) && G.mode !== "attract") {
+    const blink = G.invulnT > 0 ? 0.4 + 0.4 * Math.abs(Math.sin(G.clock * 22)) : 0.85;
+    ctx.save(); ctx.globalAlpha = blink; ctx.strokeStyle = "#bff7ff"; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(CFG.runnerX, G.py - CFG.S * 0.42, CFG.S * 0.62, 0, 7); ctx.stroke();
+    ctx.globalAlpha = blink * 0.18; ctx.fillStyle = "#7fe6ff"; ctx.fill(); ctx.restore();
+  }
 
   ctx.restore(); // end shake
   drawLighting(ctx, th);
@@ -1694,6 +1844,22 @@ function render() {
     ctx.font = "900 " + Math.round((26 + G.mult * 4) * pulse) + "px sans-serif";
     ctx.fillText("×" + G.mult, CFG.GW - 64, 46);
     ctx.fillStyle = "#cdd6ff"; ctx.font = "700 12px sans-serif"; ctx.fillText(G.combo + " combo", CFG.GW - 64, 62);
+    ctx.restore();
+  }
+  // cascade slow-mo tint + multiplier readout
+  if (G.gameMode === "cascade" && G.mode === "playing") {
+    if (G.slowScale < 0.995) {
+      const a = (1 - G.slowScale) * 0.8;
+      const vg = ctx.createRadialGradient(CFG.GW / 2, CFG.GH / 2, CFG.GH * 0.18, CFG.GW / 2, CFG.GH / 2, CFG.GW * 0.62);
+      vg.addColorStop(0, "rgba(80,255,200,0)"); vg.addColorStop(1, "rgba(40,90,140," + a.toFixed(3) + ")");
+      ctx.save(); ctx.fillStyle = vg; ctx.fillRect(0, 0, CFG.GW, CFG.GH); ctx.restore();
+    }
+    const slowing = G.slowScale < 0.995;
+    const pulse = 1 + (slowing ? 0.1 * Math.sin(G.clock * 12) : 0);
+    ctx.save(); ctx.textAlign = "center";
+    ctx.fillStyle = slowing ? "#8df0c8" : "#cfeede"; ctx.shadowColor = "#0b1a2e"; ctx.shadowBlur = 6;
+    ctx.font = "900 " + Math.round(30 * pulse) + "px sans-serif"; ctx.fillText("×" + G.cMult, CFG.GW / 2, 40);
+    ctx.shadowBlur = 0; ctx.fillStyle = "#9fb0d8"; ctx.font = "800 10px sans-serif"; ctx.fillText("CASCADE", CFG.GW / 2, 53);
     ctx.restore();
   }
   drawBanner(ctx);
@@ -1726,48 +1892,69 @@ function frame(ts) {
   requestAnimationFrame(frame);
 }
 
-function startRun() {
-  reset(); G.mode = "playing"; document.body.classList.add("playing"); fitCanvas();
+function startRun(mode) {
+  const m = mode === "cascade" ? "cascade" : "endless";
+  reset(); G.gameMode = m;
+  if (save.shields > 0) { save.shields--; G.shield = true; }      // spend a stocked shield/magnet for this run
+  if (save.magnets > 0) { save.magnets--; G.magnetRun = true; }
+  if (G.shield || G.magnetRun) persist();
+  G.mode = "playing"; document.body.classList.add("playing"); fitCanvas();
   hide(titleScreen); hide(overScreen);
   hint.style.display = "block"; setTimeout(() => hint.style.display = "none", 1400);
-  pushBanner(themeById(save.theme).name);
-  Bridge.emit("run-start", { world: save.theme });
+  pushBanner(m === "cascade" ? "CASCADE MODE" : themeById(save.theme).name);
+  Bridge.emit("run-start", { world: save.theme, mode: m });
 }
 function gameOver() {
   hitBurst(CFG.runnerX, G.py - CFG.S * 0.4);
   Sfx.hit(); G.mode = "over"; document.body.classList.remove("playing"); fitCanvas();
-  Wallet.earn(G.runCoins, "run");                       // bank the run's coins (routes through the wallet seam)
-  const best = G.score > save.best; if (best) save.best = G.score;
+  const banked = save.coinDoubler ? G.runCoins * 2 : G.runCoins;
+  Wallet.earn(banked, "run");                            // bank the run's coins (routes through the wallet seam)
+  const cascade = G.gameMode === "cascade";
+  const prevBest = cascade ? (save.bestCascade || 0) : save.best;
+  const best = G.score > prevBest;
+  if (best) { if (cascade) save.bestCascade = G.score; else save.best = G.score; }
   if (G.bestCombo > (save.bestCombo || 0)) save.bestCombo = G.bestCombo;
   unlockWorld(THEMES[G.maxStage].id);
   save.reached = Math.max(save.reached || 0, G.maxStage);
   persist();
-  $("ovScore").textContent = G.score; $("ovBest").textContent = save.best; $("ovCoins").textContent = "+" + G.runCoins;
-  $("ovWorld").textContent = "Reached " + THEMES[G.maxStage].name + (G.bestCombo >= 5 ? " · best " + G.bestCombo + "× combo" : "");
+  $("ovScore").textContent = G.score;
+  $("ovBest").textContent = cascade ? (save.bestCascade || 0) : save.best;
+  $("ovCoins").textContent = "+" + banked + (save.coinDoubler ? " ×2" : "");
+  $("ovWorld").textContent = cascade
+    ? "Cascade · peaked at ×" + G.cMult + (G.bestCombo >= 5 ? " · best " + G.bestCombo + "× combo" : "")
+    : "Reached " + THEMES[G.maxStage].name + (G.bestCombo >= 5 ? " · best " + G.bestCombo + "× combo" : "");
   newBest.style.display = best ? "block" : "none";
   show(overScreen);
-  Bridge.emit("game-over", { score: G.score, best: save.best, coins: save.coins, world: THEMES[G.maxStage].id });
+  Bridge.emit("game-over", { score: G.score, best: save.best, coins: save.coins, world: THEMES[G.maxStage].id, mode: G.gameMode });
 }
 
 /* ---- 10. UI ------------------------------------------------------------- */
 const $ = id => document.getElementById(id);
 const titleScreen=$("titleScreen"),overScreen=$("overScreen"),collScreen=$("collScreen"),
-      themeScreen=$("themeScreen"),hatchScreen=$("hatchScreen"),
+      themeScreen=$("themeScreen"),hatchScreen=$("hatchScreen"),shopScreen=$("shopScreen"),
       hint=$("hint"),jumpBtn=$("jumpBtn"),
       scoreNow=$("scoreNow"),coinCount=$("coinCount"),stageLabel=$("stageLabel"),newBest=$("newBest");
 function show(el){el.classList.add("show");} function hide(el){el.classList.remove("show");}
 function toMenu(){ G.mode="attract"; document.body.classList.remove("playing"); reset(); fitCanvas();
-  [overScreen,collScreen,themeScreen,hatchScreen].forEach(hide);
+  [overScreen,collScreen,themeScreen,hatchScreen,shopScreen].forEach(hide);
   $("bestTitle").textContent=save.best; $("worldsTitle").textContent=save.themes.length;
   renderFavBar(); show(titleScreen); }
 let toastT;
 function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),1600); }
 
 /* ----- collection (your owned critters; favourites pinned first) ----- */
-function thumb(canvas, seed) {
-  const c = canvas.getContext("2d"); const w = canvas.width = 144, h = canvas.height = 144;
-  c.clearRect(0, 0, w, h); c.setTransform(1, 0, 0, 1, 0, 0);
-  Skins.draw(c, Skins.traits(seed), w * 0.5, h * 0.86, 96, "run", 1.2);
+// Back the canvas at devicePixelRatio so previews are crisp, not CSS-upscaled blur.
+function hidpiCanvas(canvas, cssW, cssH) {
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  canvas.width = Math.round(cssW * dpr); canvas.height = Math.round(cssH * dpr);
+  const c = canvas.getContext("2d"); c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return c;
+}
+function thumb(canvas, seed, box) {
+  box = box || 72;
+  const c = hidpiCanvas(canvas, box, box); c.clearRect(0, 0, box, box);
+  // static idle stance, phase offset per-seed so the grid doesn't look uniform
+  Skins.draw(c, Skins.traits(seed), box * 0.5, box * 0.84, box * 0.66, "idle", 2.2 + (hashStr(seed) % 100) / 30);
 }
 function makeCell(seed) {
   const tr = Skins.traits(seed);
@@ -1832,7 +2019,7 @@ function renderFavBar() {
     if (seed) {
       const cvs = document.createElement("canvas"); slot.appendChild(cvs);
       slot.onclick = () => { save.equipped = seed; persist(); renderFavBar(); toast("Equipped " + charName(seed)); };
-      thumb(cvs, seed);
+      thumb(cvs, seed, 58);
     } else slot.textContent = "★";
     bar.appendChild(slot);
   }
@@ -1888,9 +2075,26 @@ function openThemes() {
 /* ----- vault / roll ----- */
 const ROLL_COST = 120; let rolledSeed = null;
 const cap1 = s => String(s).charAt(0).toUpperCase() + String(s).slice(1);
-function thumbBig(canvas, seed, idle) {
-  const c = canvas.getContext("2d"); canvas.width = 200; canvas.height = 200; c.clearRect(0, 0, 200, 200);
-  c.globalAlpha = idle ? 0.25 : 1; Skins.draw(c, Skins.traits(seed), 100, 170, 150, "run", 1.0); c.globalAlpha = 1;
+const SHOWCASE_POSES = ["idle", "dance", "walk", "kungfu"];
+let hatchSeed = null, hatchIdle = true, hatchPhase = 0, hatchRAF = 0;
+function drawBig(canvas, seed, idle, pose, phase) {
+  const c = hidpiCanvas(canvas, 200, 200); c.clearRect(0, 0, 200, 200);
+  c.globalAlpha = idle ? 0.3 : 1;
+  Skins.draw(c, Skins.traits(seed), 100, 172, 150, pose, phase);
+  c.globalAlpha = 1;
+}
+function hatchTick() {
+  if (hatchSeed == null || !hatchScreen.classList.contains("show")) { hatchRAF = 0; return; }   // self-stop when hidden
+  hatchPhase += 0.09;
+  // equipped preview just breathes; a freshly rolled critter cycles through showoff poses
+  const pose = hatchIdle ? "idle" : SHOWCASE_POSES[Math.floor(hatchPhase / 18) % SHOWCASE_POSES.length];
+  drawBig($("hatchCanvas"), hatchSeed, hatchIdle, pose, hatchPhase);
+  hatchRAF = requestAnimationFrame(hatchTick);
+}
+function showBig(seed, idle) {
+  hatchSeed = seed; hatchIdle = idle; hatchPhase = idle ? 2.0 : 0;
+  drawBig($("hatchCanvas"), seed, idle, idle ? "idle" : "dance", hatchPhase);
+  if (!hatchRAF) hatchRAF = requestAnimationFrame(hatchTick);
 }
 function refreshFavRolled() {
   const b = $("favRolledBtn"); if (!b || !rolledSeed) return;
@@ -1900,41 +2104,118 @@ function openHatch() {
   rolledSeed = null; $("hatchRar").innerHTML = "";
   $("equipRolledBtn").style.display = "none"; $("favRolledBtn").style.display = "none";
   $("hatchLabel").innerHTML = "Spend coins to roll a brand-new skitterling.<br>Millions of possibilities — every one unique, named, and yours forever.";
-  thumbBig($("hatchCanvas"), save.equipped, true); show(hatchScreen);
+  updatePieceUI(); show(hatchScreen); showBig(save.equipped, true);
 }
-function nextRollSeed() {
-  // ~50% chance to fill the Skitterdex with an unowned NAMED critter (so the
-  // 415-dex is an achievable goal), else a fresh procedural one for variety.
-  const sig = ROSTER.filter(r => !save.owned.includes(r.name));
-  if (sig.length && Math.random() < 0.5) return sig[Math.floor(Math.random() * sig.length)].name;
-  // a fresh, never-before-seen procedural critter — no duplicates, ever
+const EPIC_PITY = 40;                 // a dry streak this long forces the next roll to Epic+
+const PIECE_COSTS = { rare: [2, 40], epic: [3, 120], legend: [4, 300] };  // [minRarityIdx, piece cost]
+function nextRollSeed(minRarity) {
+  minRarity = minRarity || 0;
+  // prefer an unowned NAMED critter that clears the rarity floor (keeps the dex achievable)
+  const sig = ROSTER.filter(r => !save.owned.includes(r.name) && Skins.traits(r.name).rarIdx >= minRarity);
+  if (sig.length && (minRarity > 0 || Math.random() < 0.5)) return sig[Math.floor(Math.random() * sig.length)].name;
+  // else a fresh, never-before-seen procedural critter that meets the floor — no duplicates, ever
   let seed, guard = 0;
-  do { seed = String(Math.floor(100000000000 + Math.random() * 899999999999)); } while (save.owned.includes(seed) && guard++ < 64);
+  do { seed = String(Math.floor(100000000000 + Math.random() * 899999999999)); }
+  while ((save.owned.includes(seed) || Skins.traits(seed).rarIdx < minRarity) && guard++ < 2000);
   return seed;
 }
-function roll() {
-  if (!Wallet.spend(ROLL_COST, "roll")) return toast("Need " + ROLL_COST + " coins");
-  const seed = nextRollSeed();
-  const tr = Skins.traits(seed); save.owned.push(seed); rolledSeed = seed; persist(); checkDexMilestones();
-  const c = $("hatchCanvas"); c.classList.remove("pop"); void c.offsetWidth; c.classList.add("pop");
-  thumbBig(c, seed, false); Sfx.coin();
+// shared roll core: pick a seed (with a rarity floor), add it, update pity, reveal it
+function doRoll(minRarity) {
+  const seed = nextRollSeed(minRarity);
+  const tr = Skins.traits(seed); save.owned.push(seed); rolledSeed = seed;
+  if (tr.rarIdx >= 3) save.sinceEpic = 0; else save.sinceEpic = (save.sinceEpic || 0) + 1;   // Epic+ resets pity
+  persist(); checkDexMilestones();
+  const c = $("hatchCanvas"); c.style.setProperty("--rg", tr.rarColor);
+  c.classList.remove("reveal"); void c.offsetWidth; c.classList.add("reveal");
+  showBig(seed, false); Sfx.coin();
   $("hatchRar").innerHTML = `<div class="rar-pill" style="background:${tr.rarColor};color:#0e1326">${cap1(tr.material)} · ${tr.rarity}</div>`;
   $("hatchLabel").innerHTML = `Say hello to <b>${charName(seed)}</b> — added to your collection.`;
   $("equipRolledBtn").style.display = "block"; $("favRolledBtn").style.display = "block";
-  refreshFavRolled(); coinCount.textContent = save.coins;
+  refreshFavRolled(); coinCount.textContent = save.coins; updatePieceUI();
+  return tr;
+}
+function roll() {
+  if (!Wallet.spend(ROLL_COST, "roll")) return toast("Need " + ROLL_COST + " coins");
+  let minR = 0;
+  if (save.rarityBoosts > 0) { save.rarityBoosts--; minR = 2; toast("Rarity Booster used — Rare+ guaranteed"); }   // WS4 consumable
+  if ((save.sinceEpic || 0) >= EPIC_PITY) minR = Math.max(minR, 3);    // pity overrides up to Epic+
+  save.pieces = (save.pieces || 0) + 2;                                // small consolation toward crafting
+  doRoll(minR);
+}
+function pieceRoll(tierKey) {
+  const t = PIECE_COSTS[tierKey]; if (!t) return;
+  if ((save.pieces || 0) < t[1]) return toast("Need " + t[1] + " pieces");
+  save.pieces -= t[1]; persist();
+  doRoll(t[0]);
+}
+// pieces balance, pity progress, craft-button affordability, and the published odds box
+function updatePieceUI() {
+  const p = save.pieces || 0;
+  const pe = $("hatchPieces"); if (pe) pe.innerHTML = `<b>${p}</b> pieces · Epic pity <b>${save.sinceEpic || 0}/${EPIC_PITY}</b>`;
+  for (const k in PIECE_COSTS) { const b = $("craft" + cap1(k)); if (b) b.disabled = p < PIECE_COSTS[k][1]; }
+  const ob = $("oddsBox");
+  if (ob && !ob.dataset.built) {
+    ob.innerHTML = RARITIES.map(r => `<span style="color:${r[2]}">${r[0]} ${(r[1] * 100).toFixed(r[1] < 0.02 ? 1 : 0)}%</span>`).join(" · ");
+    ob.dataset.built = "1";
+  }
 }
 
+/* ----- boosters / shop ----- */
+const SHOP = [
+  { id: "shield", name: "Shield", desc: "Start your next run protected — absorbs one hit.", cost: 800 },
+  { id: "magnet", name: "Coin Magnet", desc: "Auto-collect coins for your whole next run.", cost: 500 },
+  { id: "rarity", name: "Rarity Booster", desc: "Your next vault roll is guaranteed Rare or better.", cost: 350 },
+  { id: "doubler", name: "Coin Doubler", desc: "Permanently doubles every coin you bank. Yours forever.", cost: 5000, perm: true }
+];
+function shopOwned(id) {
+  return id === "shield" ? (save.shields || 0) : id === "magnet" ? (save.magnets || 0)
+    : id === "rarity" ? (save.rarityBoosts || 0) : save.coinDoubler ? 1 : 0;
+}
+function buyBooster(id) {
+  const item = SHOP.find(s => s.id === id); if (!item) return;
+  if (item.perm && save.coinDoubler) return toast("Already owned");
+  if (!Wallet.spend(item.cost, "booster:" + id)) return toast("Need " + item.cost + " coins");
+  if (id === "shield") save.shields = (save.shields || 0) + 1;
+  else if (id === "magnet") save.magnets = (save.magnets || 0) + 1;
+  else if (id === "rarity") save.rarityBoosts = (save.rarityBoosts || 0) + 1;
+  else if (id === "doubler") save.coinDoubler = true;
+  persist(); toast(item.name + (item.perm ? " unlocked!" : " ×1 added")); buildShop();
+}
+function buildShop() {
+  const list = $("shopList"); list.innerHTML = "";
+  $("shopCoins").innerHTML = '<span class="coin"></span> ' + save.coins + " coins";
+  SHOP.forEach(item => {
+    const owned = shopOwned(item.id);
+    const row = document.createElement("div"); row.className = "row";
+    const meta = document.createElement("div"); meta.className = "meta";
+    meta.innerHTML = "<b>" + item.name + (item.perm ? "" : (owned ? " · ×" + owned : "")) + "</b><span>" + item.desc + "</span>";
+    row.appendChild(meta);
+    const btn = document.createElement("button");
+    if (item.perm && save.coinDoubler) { btn.className = "btn ghost"; btn.textContent = "Owned"; btn.disabled = true; }
+    else { btn.className = "btn"; btn.innerHTML = '<span class="price"><span class="coin"></span>' + item.cost + "</span>"; btn.onclick = () => buyBooster(item.id); }
+    btn.style.flex = "0 0 auto"; btn.style.padding = "11px 16px"; row.appendChild(btn);
+    list.appendChild(row);
+  });
+}
+function openShop() { buildShop(); show(shopScreen); }
+
 /* wire up */
-$("playBtn").onclick = startRun;
-$("retryBtn").onclick = startRun;
+$("playBtn").onclick = () => startRun("endless");
+$("cascadeBtn").onclick = () => startRun("cascade");
+$("retryBtn").onclick = () => startRun(G.gameMode);
 $("ovMenuBtn").onclick = toMenu;
 $("collectionBtn").onclick = () => { collMode = "owned"; openCollection(); };
 $("segColl").onclick = () => { collMode = "owned"; openCollection(); };
 $("segDex").onclick = () => { collMode = "dex"; openCollection(); };
 $("themesBtn").onclick = openThemes;
+$("shopBtn").onclick = openShop;
 $("hatchOpenBtn").onclick = openHatch;
 $("ovHatchBtn").onclick = () => { hide(overScreen); openHatch(); };
 $("rollBtn").onclick = roll;
+$("craftRare").onclick = () => pieceRoll("rare");
+$("craftEpic").onclick = () => pieceRoll("epic");
+$("craftLegend").onclick = () => pieceRoll("legend");
+$("oddsBtn").onclick = () => { const o = $("oddsBox"); const open = o.style.display === "none"; o.style.display = open ? "block" : "none"; $("oddsBtn").textContent = open ? "Drop rates ▴" : "Drop rates ▾"; };
 $("equipRolledBtn").onclick = () => { if (rolledSeed) { save.equipped = rolledSeed; persist(); renderFavBar(); toast("Equipped " + charName(rolledSeed)); } };
 $("favRolledBtn").onclick = () => { if (rolledSeed) { toggleFav(rolledSeed); refreshFavRolled(); renderFavBar(); } };
 document.querySelectorAll("[data-close]").forEach(b => b.onclick = () => {
@@ -2075,6 +2356,16 @@ const Bridge = {
       case "resume":      if (G.mode === "paused") { G.mode = "playing"; last = 0; } break;
       case "mute":        save.muted = !!(m.data && m.data.muted); persist(); $("muteBtn").textContent = save.muted ? "🔇" : "🔊"; break;
       case "grant-coins": Wallet.earn((m.data && m.data.amount) | 0, "host"); break;
+      // host (Lucid Winds) can grant premium boosters bought for sunbeams / Pi — coins stay internal
+      case "grant-doubler": save.coinDoubler = true; persist(); break;
+      case "grant-pieces":  save.pieces = (save.pieces || 0) + ((m.data && m.data.amount) | 0); persist(); break;
+      case "grant-booster": {
+        const d = m.data || {}, k = d.kind, n = (d.amount | 0) || 1;
+        if (k === "shield") save.shields = (save.shields || 0) + n;
+        else if (k === "magnet") save.magnets = (save.magnets || 0) + n;
+        else if (k === "rarity") save.rarityBoosts = (save.rarityBoosts || 0) + n;
+        persist(); break;
+      }
       case "to-menu":     toMenu(); break;
     }
   }
@@ -2083,7 +2374,7 @@ window.addEventListener("message", e => { try { Bridge.handle(e); } catch (err) 
 
 /* Public API a same-origin host (or a window reference) can call directly. */
 window.SKITTERLINGS = {
-  version: "1.2.0-build6",
+  version: "1.3.0-build7",
   configure(cfg) {
     if (!cfg) return SK_CFG;
     if (cfg.parentOrigin) SK_CFG.parentOrigin = cfg.parentOrigin;
@@ -2114,6 +2405,8 @@ window.SK = {
   addCoins(n) { Wallet.earn(n | 0, "dev"); toast("+" + (n | 0) + " coins"); return save.coins; },
   unlockAllWorlds() { THEMES.forEach(t => unlockWorld(t.id)); toast("All worlds unlocked"); if (themeScreen.classList.contains("show")) openThemes(); },
   rollMany(n) { for (let i = 0; i < (n || 1); i++) { const s = nextRollSeed(); if (!save.owned.includes(s)) save.owned.push(s); } persist(); toast((n || 1) + " skitterlings added"); },
+  addPieces(n) { save.pieces = (save.pieces || 0) + (n | 0); persist(); toast("+" + (n | 0) + " pieces"); return save.pieces; },
+  giveBooster(kind, n) { n = n || 1; if (kind === "shield") save.shields = (save.shields || 0) + n; else if (kind === "magnet") save.magnets = (save.magnets || 0) + n; else if (kind === "rarity") save.rarityBoosts = (save.rarityBoosts || 0) + n; else if (kind === "doubler") save.coinDoubler = true; persist(); toast("booster: " + kind); },
   wipe() { save = Object.assign(defaultSave(), {}); persist(); toast("Save wiped — reload"); }
 };
 
