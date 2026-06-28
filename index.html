@@ -1508,7 +1508,7 @@ const CFG = {
   coinEvery: 420, flyAfter: 200,          // coinEvery↑ = slower passive trickle (coins were too easy)
   stageLen: 240, stageFade: 2.0,
   // ---- Cascade mode (WS2): periodic slowdown waves that each raise the multiplier ----
-  waveEvery: 9, slowIn: 0.5, slowHold: 1.6, slowOut: 0.7, slowFactor: 0.5, cMultCap: 30
+  waveEvery: 7.5, slowIn: 0.45, slowHold: 1.3, slowOut: 0.65, slowFactor: 0.46, cMultCap: 30
 };
 const cv = document.getElementById("game"), ctx = cv.getContext("2d");
 let DPR = 1, scale = 1;
@@ -1528,7 +1528,7 @@ const G = {
   holdJump: false, coyoteT: 0, jumpBuf: 0,
   fx: [], shake: 0, squash: 0, banner: null, bannerT: 0,
   combo: 0, comboT: 0, mult: 1, bestCombo: 0,
-  gameMode: "endless", cMult: 1, waveT: 9, slowEl: -1, slowScale: 1, cScoreF: 0,   // Cascade state
+  gameMode: "endless", cMult: 1, waveT: 7.5, slowEl: -1, slowScale: 1, cScoreF: 0,   // Cascade state
   pickups: [], shield: false, invulnT: 0, magnetT: 0, magnetRun: false,            // WS4 pickups/boosters
   chase: { state: "gone", x: 9999, t: 3, vx: 0, glance: 0 },
   stageIdx: 0, stageA: THEMES[0].id, stageB: THEMES[0].id, blend: 0, transitioning: false, stageNext: 0,
@@ -1548,7 +1548,7 @@ function updateCascade(dt) {
     G.slowEl = 0;
     G.cMult = Math.min(CFG.cMultCap, G.cMult + 1);
     pushBanner("CASCADE ×" + G.cMult); G.shake = Math.max(G.shake, 5); Sfx.stage();
-    G.waveT = Math.max(4, CFG.waveEvery - G.cMult * 0.15);   // waves creep closer together as it climbs
+    G.waveT = Math.max(4, CFG.waveEvery - G.cMult * 0.18);   // waves creep closer together as it climbs
   }
   if (G.slowEl >= 0) {
     G.slowEl += dt;
@@ -1672,7 +1672,7 @@ function spawn() {
   }
   // occasional floating pickup — shard (pieces) common, shield/magnet rarer
   const pr = Math.random();
-  const ptype = pr < 0.08 ? "shard" : pr < 0.12 ? "shield" : pr < 0.16 ? "magnet" : null;
+  const ptype = pr < 0.10 ? "shard" : pr < 0.13 ? "shield" : pr < 0.17 ? "magnet" : null;
   if (ptype) {
     const py = CFG.groundY - (0.7 + Math.random() * 0.7) * CFG.S;
     G.pickups.push({ x: CFG.GW + 220, y: py, r: 13, type: ptype, got: false, ph: Math.random() * 6.28 });
@@ -1912,6 +1912,7 @@ function frame(ts) {
 function startRun(mode) {
   const m = mode === "cascade" ? "cascade" : "endless";
   reset(); G.gameMode = m;
+  if (m === "cascade") G.waveT = 5;                               // first slowdown hits early to teach the mechanic
   if (save.shields > 0) { save.shields--; G.shield = true; }      // spend a stocked shield/magnet for this run
   if (save.magnets > 0) { save.magnets--; G.magnetRun = true; }
   if (G.shield || G.magnetRun) persist();
@@ -2392,7 +2393,7 @@ window.addEventListener("message", e => { try { Bridge.handle(e); } catch (err) 
 
 /* Public API a same-origin host (or a window reference) can call directly. */
 window.SKITTERLINGS = {
-  version: "1.3.1-build8",
+  version: "1.3.2-build9",
   configure(cfg) {
     if (!cfg) return SK_CFG;
     if (cfg.parentOrigin) SK_CFG.parentOrigin = cfg.parentOrigin;
