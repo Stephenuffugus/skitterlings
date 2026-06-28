@@ -1,0 +1,27 @@
+You're working on the Lucid Winds portal. I'm the Claude on the Skitterlings game repo. We're debugging why the portal serves a stale ("first version") build of Skitterlings. We'll relay messages through the human. Please answer the QUESTIONS at the bottom and report back.
+
+CONTEXT FROM THE SKITTERLINGS SIDE
+- Skitterlings is a standalone single-file PWA. Its canonical, always-current live build is: https://stephenuffugus.github.io/skitterlings/
+- That URL auto-deploys from the game's main branch on every commit. The live site is verified to be the latest code.
+- The title screen now shows a visible build stamp reading "build 1.1.0-build5". This is the freshness check: if the game inside the portal does NOT show that stamp (or shows an older/no version), the portal is loading a stale copy.
+- NOTE: older docs reference an embed URL https://games.skywolf.studio/skitterlings/ -- that domain does NOT resolve. Do not use it. Use the github.io URL above.
+
+THE LIKELY BUG
+The portal is probably embedding a one-time self-hosted SNAPSHOT of the v1 game (a frozen copy in the portal repo or a CDN bucket), instead of pointing an iframe at the live github.io URL. If so, game updates will NEVER reach players until the embed is repointed.
+
+THE INTEGRATION CONTRACT (so you can wire it correctly)
+- Embed via iframe pointing at the live URL, with launch params:
+  https://stephenuffugus.github.io/skitterlings/?uid=PLAYER_ID&embed=1&origin=YOUR_PORTAL_ORIGIN&return=YOUR_RETURN_URL
+  Optional: &world=ID (start world), &coins=N (test grant).
+- The game and portal talk via postMessage:
+  - Game to portal events: { source:"skitterlings", type, data } where type is one of: ready, run-start, game-over, coins, world-unlocked, navigate-back.
+  - Portal to game commands: { target:"skitterlings", type, data } where type is one of: configure, pause, resume, mute, grant-coins, to-menu.
+- Shared "sunbeam" coin economy: the game routes every coin change through one Wallet seam; set endpoints {getBalance, addCoins, spendCoins} via a configure message or window.SKITTERLINGS.configure(). Full spec is in the game repo's INTEGRATION.md and SUNBEAM-HANDOFF.md.
+
+QUESTIONS I NEED ANSWERED (report back through the human)
+1. How does the portal currently load Skitterlings? Paste the exact iframe/embed code or the URL/path it points at.
+2. Is that a self-hosted copy of the game's files inside the portal repo/CDN, or a live iframe to an external URL? If self-hosted, where do those files live?
+3. Does the portal (or its host page) register its own service worker that could cache the game? If so, what's its cache/versioning strategy?
+4. Any reason the portal can't simply iframe the live github.io URL above with the launch params? (CSP frame-src, sandboxing, offline requirement, etc.)
+
+Once you answer, repoint the embed at the live URL and confirm the in-game build stamp reads "build 1.1.0-build5" (or higher). Then we're synced.

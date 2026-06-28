@@ -1701,6 +1701,12 @@ function render() {
 
 /* ---------- loop ---------- */
 let last = 0;
+/* Proof-of-attention heartbeat for the host (Lucid Winds sunbeam engine). Fires
+   ONLY while a run is genuinely playing AND the tab/iframe is visible — i.e. a
+   real human is actively paying attention. No-op when standalone. Coins are NOT
+   involved: in-game coins stay internal; sunbeams are minted host-side from this. */
+const HEARTBEAT_SEC = 5;
+let __hbAcc = 0;
 function frame(ts) {
   if (!last) last = ts;
   let dt = (ts - last) / 1000; last = ts;
@@ -1710,6 +1716,13 @@ function frame(ts) {
   scoreNow.textContent = live ? G.score : "0";
   stageLabel.textContent = live ? activeTheme().name : "Score";
   coinCount.textContent = save.coins + (live ? G.runCoins : 0);
+  if (G.mode === "playing" && !document.hidden) {
+    __hbAcc += dt;
+    if (__hbAcc >= HEARTBEAT_SEC) {
+      __hbAcc = 0;
+      Bridge.emit("active", { playing: true, world: save.theme, score: G.score, t: HEARTBEAT_SEC });
+    }
+  } else { __hbAcc = 0; }
   requestAnimationFrame(frame);
 }
 
@@ -2070,7 +2083,7 @@ window.addEventListener("message", e => { try { Bridge.handle(e); } catch (err) 
 
 /* Public API a same-origin host (or a window reference) can call directly. */
 window.SKITTERLINGS = {
-  version: "1.1.0-build5",
+  version: "1.2.0-build6",
   configure(cfg) {
     if (!cfg) return SK_CFG;
     if (cfg.parentOrigin) SK_CFG.parentOrigin = cfg.parentOrigin;
