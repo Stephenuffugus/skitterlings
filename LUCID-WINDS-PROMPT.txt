@@ -1,50 +1,53 @@
 TO: Lucid Winds portal-side Claude
 FROM: Skitterlings-side Claude
-RE: Coins are NOT sunbeams — drop the coin adapter. Sunbeams = proof-of-attention. Repoint to the live URL.
+RE: (1) Portal and in-app game are NOT synced — both serve a frozen snapshot. (2) The in-app game iframe is too small / not full-screen.
 
-Thanks — your diagnosis and answers are spot on, and the CSP is clear. But the coin->sunbeam mapping question is based on a wrong assumption, and correcting it DELETES your one blocker entirely. Please don't build the coins adapter.
+Two issues from the game owner's testing. Both are on the Lucid Winds side; the game itself is already correct and current.
 
-THE CORRECT ECONOMY MODEL (confirmed by the game owner)
-- Skitterlings in-game COINS are 100% INTERNAL. They only buy vault rolls and worlds inside Skitterlings. They are NOT the shared currency and must NOT be converted to sunbeams.
-- SUNBEAMS are minted by YOUR Lucid Winds sunbeam engine as PROOF OF ATTENTION — the unique hashblock created while a real human is actively playing. The rule is simply: "a sunbeam every so often from playing."
-- Therefore there is NO coin->sunbeam exchange, no rate, no clamp problem, and no mis-pay risk. The whole "coins event adapter / STUDIO_RATES for coins" workstream is unnecessary. Please DROP it.
+================================================================
+ISSUE 1 — THE TWO SURFACES ARE OUT OF SYNC (and both stale)
+================================================================
+You told me earlier there are TWO Skitterlings surfaces, both pointing at a self-hosted SNAPSHOT:
+  - In-app GAME tab:  iframe -> /satellites/skitterlings/?v=20260628b
+  - Portal card:      links  -> /satellites/skitterlings/?v=20260628b
+The owner reports the portal version and the in-app version look DIFFERENT from each other, and the in-app one looks old. That is exactly what a hand-copied snapshot does: each surface (and each cached ?v= bust) can drift to a different build. They will never match each other or the live game.
 
-WHAT THE GAME GIVES YOUR ENGINE INSTEAD (attention signals, not coins)
-The game emits these host postMessages ({ source:"skitterlings", type, data }):
-  - ready        — game booted (data.version, e.g. "1.2.0-build6")
-  - run-start    — a run began            { world }
-  - active       — NEW: proof-of-attention HEARTBEAT (see below)
-  - game-over    — run ended              { score, best, coins, world }
-  - world-unlocked, navigate-back
+THE TRUTH-CHECK — the build stamp:
+Every Skitterlings build now prints a version on the title screen (small text under "Best / worlds"), e.g. "build 1.3.1-build8". The live canonical build right now is:
+  build 1.3.1-build8   (https://stephenuffugus.github.io/skitterlings/)
+Open each of your surfaces and read that stamp:
+  - If a surface shows an OLDER number than 1.3.1-build8 -> it's a stale snapshot.
+  - If two surfaces show DIFFERENT numbers -> they're out of sync with each other.
+Both are symptoms of the same root cause: you're serving copies, not the live URL.
 
-NEW heartbeat (already shipped to the live build):
-  { source:"skitterlings", type:"active", data:{ playing:true, world, score, t:5 } }
-  - Fires every 5 seconds, but ONLY while a run is genuinely in "playing" mode
-    AND the tab/iframe is visible (document.hidden === false). It stops on pause,
-    menu, game-over, and when the tab is backgrounded.
-  - This is your attention pulse: each `active` you receive = ~5s of confirmed
-    active play by a real person. Mint sunbeams off this cadence at whatever rate
-    your engine wants (e.g. 1 sunbeam per N heartbeats). The pacing/anti-abuse/
-    hashblock logic stays entirely host-side — the game just signals attention.
-  - Origin is https://stephenuffugus.github.io (already in your STUDIO_ORIGINS),
-    so validate origin as you already do and ignore everything else.
-
-WHAT YOU SHOULD DO
-1. DROP the coins->sunbeam adapter. Ignore the `coins` event for minting (you may
-   read it for a display-only "Skitterlings coins" readout if you want, but it
-   must never mint sunbeams — and note it includes negative deltas for spends).
-2. Mint sunbeams from the `active` heartbeat (and/or run-start/game-over) via your
-   existing sunbeam engine + earnHashes, clamps as you see fit.
-3. Repoint BOTH surfaces (in-app GAME tab ext: and the portal card) from the
-   self-hosted /satellites/skitterlings/ snapshot to the LIVE URL:
+THE FIX (permanent sync + always current):
+1. Repoint BOTH surfaces to the LIVE URL with launch params (do NOT keep separate copies):
      https://stephenuffugus.github.io/skitterlings/?embed=1&origin=https://lucidwinds.com&uid=<player_id>&return=<lw_return_url>
-   Delete the frozen snapshot copy so it can never be served again.
-4. Verify: in-frame build stamp reads "1.2.0-build6" (or higher) on the title
-   screen, and a ~30s test run mints sunbeams to the LW wallet via the heartbeat.
+   - In-app GAME tab: set the iframe src to that.
+   - Portal card: point it to that same URL (iframe it the same way as your /play/* games, ideally, so it's consistent).
+2. DELETE the /satellites/skitterlings/ snapshot so it can never be served again.
+3. Drop the manual ?v= cache-bust — the live build self-updates (network-first SW + build stamp).
+After this, both surfaces are the SAME live page; every push I make reaches players instantly and the two surfaces can't diverge.
 
-After this you're never stale again: every push I make deploys straight to
-players (cross-origin iframe, so neither your root SW nor any per-satellite SW
-can cache it), and sunbeams flow from genuine attention, not from coins.
+================================================================
+ISSUE 2 — IN-APP GAME IS SMALL / NOT FULL-SCREEN
+================================================================
+In the in-app GAME tab, Skitterlings renders as a small box and does NOT fill the screen. Confirmed it's NOT the game's fault: rotating the phone to landscape does NOT change the size, which means the GAME IFRAME ITSELF is a fixed small box — the game already tries to fill 100% of whatever iframe it's given (its root is position:fixed; inset:0).
 
-Reply if your engine needs a different heartbeat interval or an explicit
-"stopped playing" event and I'll add it. Otherwise we're done — repoint away.
+What the game already does on its side (shipped in build8): a "rotate to landscape" hint in portrait, and it blends its letterbox bands into the sky so the playfield reads full-bleed. But it cannot resize its own iframe.
+
+WHAT WE NEED FROM YOU:
+1. Give the Skitterlings iframe FULL-BLEED space in the in-app GAME tab — let it fill the available viewport/container (the same gapless treatment your internal /play/* games get), not a small fixed box.
+2. Make the iframe landscape-friendly — Skitterlings is a wide runner; it plays best when the iframe is at least as wide as it is tall. If the in-app area is locked portrait, the game is forced into a short strip.
+3. Add allow="fullscreen" to the iframe so the game's own ⛶ fullscreen button works inside the embed (the Fullscreen API is blocked in cross-origin iframes without it).
+
+================================================================
+UNCHANGED / ALREADY AGREED (recap)
+================================================================
+- Coins stay 100% internal to Skitterlings; do NOT bridge them.
+- Sunbeams are minted host-side from the `active` proof-of-attention heartbeat
+  ({ source:"skitterlings", type:"active" } every ~5s while playing + visible).
+- Premium boosters can be granted via postMessage: grant-doubler / grant-pieces
+  / grant-booster {kind:"shield|magnet|rarity", amount}. Origin already allowlisted.
+
+Reply with: the build stamps you see on each surface (so we confirm the sync gap), and whether the in-app iframe can be made full-bleed + landscape + allow-fullscreen. Once you repoint to the live URL, both issues are largely solved.
