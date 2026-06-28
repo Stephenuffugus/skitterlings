@@ -100,6 +100,12 @@
   .btn.sm{padding:9px 6px;font-size:12px;font-weight:700;letter-spacing:0;flex:1}
   .btn:disabled{opacity:.4;cursor:default}
   .craftrow{display:flex;gap:6px;width:100%;max-width:340px}
+  /* animated character stages (game-over celebration + collection detail) */
+  .charstage{width:128px;height:128px;display:block;margin:0 auto 2px}
+  .charstage.big{width:188px;height:188px}
+  @media (orientation:landscape){ .charstage{width:92px;height:92px} .charstage.big{width:150px;height:150px} }
+  .poserow{display:flex;gap:6px;width:100%;max-width:340px;margin-top:10px}
+  .btn.pose.on{border-color:var(--cyan);color:var(--cyan)}
   .piece{display:inline-block;width:11px;height:11px;transform:rotate(45deg);border-radius:2px;
     background:linear-gradient(135deg,#bff7ff,var(--cyan));vertical-align:-1px;margin-right:3px}
   .btn:disabled{opacity:.45;cursor:not-allowed}
@@ -212,7 +218,8 @@
 
 <!-- Game Over -->
 <div class="screen" id="overScreen">
-  <div class="scroll" style="display:flex;flex-direction:column;justify-content:center">
+  <div class="scroll" style="display:flex;flex-direction:column;justify-content:safe center">
+    <canvas id="ovCanvas" class="charstage"></canvas>
     <div class="center big">RUN OVER</div>
     <div class="newbest" id="newBest">★ NEW BEST ★</div>
     <div class="stat-line">
@@ -239,10 +246,29 @@
         <button class="icon-btn" data-close>✕</button>
       </div>
     </div>
-    <div class="muted" id="collSub" style="font-size:12px"><span id="collCount">0</span> collected. Tap to equip · ★ to favourite (top 3 pin to the menu).</div>
+    <div class="muted" id="collSub" style="font-size:12px"><span id="collCount">0</span> collected. Tap to view & equip · ★ to favourite (top 3 pin to the menu).</div>
     <div id="dexBar" style="display:none;height:8px;border-radius:6px;background:var(--panel);border:1px solid var(--line);margin-top:8px;overflow:hidden"><div id="dexBarFill" style="height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--gold))"></div></div>
     <div class="grid" id="collGrid"></div>
     <div id="collMore" class="muted center" style="font-size:11px;margin-top:14px"></div>
+  </div>
+</div>
+
+<!-- Skitterling detail (tap a critter to watch it perform) -->
+<div class="screen" id="detailScreen">
+  <div class="scroll" style="display:flex;flex-direction:column;justify-content:safe center;align-items:center;text-align:center">
+    <div class="sheet-head" style="width:100%"><h2 id="detName">Skitterling</h2><button class="icon-btn" id="detBack">✕</button></div>
+    <canvas id="detCanvas" class="charstage big"></canvas>
+    <div id="detRar" style="margin-top:4px"></div>
+    <div class="poserow">
+      <button class="btn ghost sm pose" data-pose="idle">Idle</button>
+      <button class="btn ghost sm pose" data-pose="walk">Walk</button>
+      <button class="btn ghost sm pose" data-pose="dance">Dance</button>
+      <button class="btn ghost sm pose" data-pose="kungfu">Kung-Fu</button>
+    </div>
+    <div class="menu-btns" style="margin-top:10px">
+      <button class="btn" id="detEquip">Equip</button>
+      <button class="btn ghost favreveal" id="detFav">☆ Add to Favourites</button>
+    </div>
   </div>
 </div>
 
@@ -1943,18 +1969,19 @@ function gameOver() {
     : "Reached " + THEMES[G.maxStage].name + (G.bestCombo >= 5 ? " · best " + G.bestCombo + "× combo" : "");
   newBest.style.display = best ? "block" : "none";
   show(overScreen);
+  overStage.play(save.equipped, best ? ["dance", "kungfu", "dance"] : ["idle", "dance", "walk", "kungfu"]);  // your critter celebrates the run
   Bridge.emit("game-over", { score: G.score, best: save.best, coins: save.coins, world: THEMES[G.maxStage].id, mode: G.gameMode });
 }
 
 /* ---- 10. UI ------------------------------------------------------------- */
 const $ = id => document.getElementById(id);
 const titleScreen=$("titleScreen"),overScreen=$("overScreen"),collScreen=$("collScreen"),
-      themeScreen=$("themeScreen"),hatchScreen=$("hatchScreen"),shopScreen=$("shopScreen"),
+      themeScreen=$("themeScreen"),hatchScreen=$("hatchScreen"),shopScreen=$("shopScreen"),detailScreen=$("detailScreen"),
       hint=$("hint"),jumpBtn=$("jumpBtn"),
       scoreNow=$("scoreNow"),coinCount=$("coinCount"),stageLabel=$("stageLabel"),newBest=$("newBest");
 function show(el){el.classList.add("show");} function hide(el){el.classList.remove("show");}
 function toMenu(){ G.mode="attract"; document.body.classList.remove("playing"); reset(); fitCanvas();
-  [overScreen,collScreen,themeScreen,hatchScreen,shopScreen].forEach(hide);
+  [overScreen,collScreen,themeScreen,hatchScreen,shopScreen,detailScreen].forEach(hide);
   $("bestTitle").textContent=save.best; $("worldsTitle").textContent=save.themes.length;
   renderFavBar(); show(titleScreen); }
 let toastT;
@@ -1974,6 +2001,40 @@ function thumb(canvas, seed, box) {
   // static idle stance, phase offset per-seed so the grid doesn't look uniform
   Skins.draw(c, Skins.traits(seed), box * 0.5, box * 0.84, box * 0.66, "idle", 2.2 + (hashStr(seed) % 100) / 30);
 }
+// Reusable animated character stage: drives a phase loop while its screen is shown,
+// cycling showcase poses (or locked to one). Powers the game-over hero + detail view.
+function spinStage(canvas, screenEl) {
+  let seed = null, raf = 0, phase = 0, poses = ["idle"], box = 160, lockPose = null;
+  function tick() {
+    if (seed == null || !screenEl.classList.contains("show")) { raf = 0; return; }   // self-stop when hidden
+    phase += 0.09;
+    const pose = lockPose || poses[Math.floor(phase / 16) % poses.length];
+    const c = hidpiCanvas(canvas, box, box); c.clearRect(0, 0, box, box);
+    Skins.draw(c, Skins.traits(seed), box * 0.5, box * 0.84, box * 0.72, pose, phase);
+    raf = requestAnimationFrame(tick);
+  }
+  return {
+    play(s, ps) { seed = s; poses = ps || ["idle", "dance", "walk", "kungfu"]; lockPose = null; phase = 0; if (!raf) raf = requestAnimationFrame(tick); },
+    lock(p) { lockPose = p; phase = 0; }
+  };
+}
+const overStage = spinStage($("ovCanvas"), overScreen);
+const detailStage = spinStage($("detCanvas"), detailScreen);
+let detailSeed = null;
+function updateDetailBtns() {
+  const eq = detailSeed === save.equipped;
+  $("detEquip").textContent = eq ? "Equipped ✓" : "Equip"; $("detEquip").disabled = eq;
+  const f = isFav(detailSeed); $("detFav").textContent = f ? "★ Favourited" : "☆ Add to Favourites"; $("detFav").classList.toggle("on", f);
+}
+// tap a critter in the collection -> watch it perform (idle/walk/dance/kung-fu)
+function openDetail(seed) {
+  detailSeed = seed; const tr = Skins.traits(seed);
+  $("detName").textContent = charName(seed);
+  $("detRar").innerHTML = `<div class="rar-pill" style="background:${tr.rarColor};color:#0e1326">${cap1(tr.material)} · ${tr.rarity}</div>`;
+  updateDetailBtns();
+  document.querySelectorAll("#detailScreen .pose").forEach(b => b.classList.remove("on"));
+  hide(collScreen); show(detailScreen); detailStage.play(seed, ["idle", "dance", "walk", "kungfu"]);
+}
 function makeCell(seed) {
   const tr = Skins.traits(seed);
   const cell = document.createElement("div");
@@ -1984,7 +2045,7 @@ function makeCell(seed) {
   fav.onclick = e => { e.stopPropagation(); const on = toggleFav(seed); fav.classList.toggle("on", on); renderFavBar(); toast(on ? "★ " + charName(seed) : "Removed favourite"); };
   cell.appendChild(fav);
   const nm = document.createElement("div"); nm.className = "nm"; nm.textContent = charName(seed); cell.appendChild(nm);
-  cell.onclick = () => { save.equipped = seed; persist(); openCollection(); renderFavBar(); toast("Equipped " + charName(seed)); };
+  cell.onclick = () => openDetail(seed);
   thumb(cvs, seed);
   return cell;
 }
@@ -2227,6 +2288,13 @@ $("segColl").onclick = () => { collMode = "owned"; openCollection(); };
 $("segDex").onclick = () => { collMode = "dex"; openCollection(); };
 $("themesBtn").onclick = openThemes;
 $("shopBtn").onclick = openShop;
+$("detBack").onclick = () => { hide(detailScreen); openCollection(); };
+$("detEquip").onclick = () => { if (detailSeed) { save.equipped = detailSeed; persist(); renderFavBar(); updateDetailBtns(); toast("Equipped " + charName(detailSeed)); } };
+$("detFav").onclick = () => { if (detailSeed) { toggleFav(detailSeed); updateDetailBtns(); renderFavBar(); } };
+document.querySelectorAll("#detailScreen .pose").forEach(b => b.onclick = () => {
+  detailStage.lock(b.dataset.pose);
+  document.querySelectorAll("#detailScreen .pose").forEach(x => x.classList.toggle("on", x === b));
+});
 $("hatchOpenBtn").onclick = openHatch;
 $("ovHatchBtn").onclick = () => { hide(overScreen); openHatch(); };
 $("rollBtn").onclick = roll;
@@ -2393,7 +2461,7 @@ window.addEventListener("message", e => { try { Bridge.handle(e); } catch (err) 
 
 /* Public API a same-origin host (or a window reference) can call directly. */
 window.SKITTERLINGS = {
-  version: "1.3.2-build9",
+  version: "1.4.0-build10",
   configure(cfg) {
     if (!cfg) return SK_CFG;
     if (cfg.parentOrigin) SK_CFG.parentOrigin = cfg.parentOrigin;
