@@ -185,6 +185,7 @@
       <button class="btn alt" id="themesBtn">Worlds</button>
     </div>
     <div class="center muted" style="margin-top:18px;font-size:11px">Best&nbsp;<span id="bestTitle">0</span> · <span id="worldsTitle">0</span> worlds</div>
+    <div class="center muted" style="margin-top:6px;font-size:9px;letter-spacing:1px;opacity:.55" id="buildStamp"></div>
   </div>
 </div>
 
@@ -1984,8 +1985,13 @@ if ("serviceWorker" in navigator && location.protocol.indexOf("http") === 0) {
     if (__refreshing) return; __refreshing = true; location.reload();
   });
   navigator.serviceWorker.register("sw.js").then(reg => {
-    try { reg.update(); } catch (e) {}
-    setInterval(() => { try { reg.update(); } catch (e) {} }, 60000);
+    const poke = () => { try { reg.update(); } catch (e) {} };
+    poke();
+    setInterval(poke, 60000);
+    // Re-check whenever the tab/iframe regains focus or visibility — an embedded
+    // portal frame can sit open for a long time between updates.
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) poke(); });
+    window.addEventListener("focus", poke);
   }).catch(() => {});
 }
 
@@ -2064,7 +2070,7 @@ window.addEventListener("message", e => { try { Bridge.handle(e); } catch (err) 
 
 /* Public API a same-origin host (or a window reference) can call directly. */
 window.SKITTERLINGS = {
-  version: "1.0.0",
+  version: "1.1.0-build5",
   configure(cfg) {
     if (!cfg) return SK_CFG;
     if (cfg.parentOrigin) SK_CFG.parentOrigin = cfg.parentOrigin;
@@ -2097,6 +2103,10 @@ window.SK = {
   rollMany(n) { for (let i = 0; i < (n || 1); i++) { const s = nextRollSeed(); if (!save.owned.includes(s)) save.owned.push(s); } persist(); toast((n || 1) + " skitterlings added"); },
   wipe() { save = Object.assign(defaultSave(), {}); persist(); toast("Save wiped — reload"); }
 };
+
+/* Visible build stamp — lets a tester confirm at a glance they're on the latest
+   build (and not a stale portal copy / cached service-worker version). */
+try { var __bs = document.getElementById("buildStamp"); if (__bs) __bs.textContent = "build " + window.SKITTERLINGS.version; } catch (e) {}
 
 readLaunchParams(); fitCanvas(); toMenu(); requestAnimationFrame(frame);
 Bridge.emit("ready", { version: window.SKITTERLINGS.version });
