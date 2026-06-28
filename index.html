@@ -40,8 +40,18 @@
   .icon-btn:active{transform:scale(.94)}
 
   /* ---- Stage ---- */
-  #stage{position:relative;flex:1 1 auto;display:flex;align-items:center;justify-content:center;min-height:0}
+  #stage{position:relative;flex:1 1 auto;display:flex;align-items:center;justify-content:center;min-height:0;
+    background:linear-gradient(180deg,#0e1326,#0e1326);transition:background .6s ease}
   #game{width:100%;height:100%;display:block;touch-action:none}
+
+  /* rotate-to-landscape suggestion (portrait, touch devices only; dismissible) */
+  #rotateHint{display:none;position:fixed;left:50%;top:max(8px,env(safe-area-inset-top));transform:translateX(-50%);
+    z-index:30;align-items:center;gap:9px;background:#243056f2;border:1px solid var(--line);border-radius:999px;
+    padding:7px 9px 7px 14px;font-size:12px;font-weight:700;color:var(--ink);box-shadow:0 6px 20px #0008;max-width:94vw}
+  #rotateHint .rot{font-size:16px;display:inline-block;animation:rotwig 1.8s ease-in-out infinite}
+  @keyframes rotwig{0%,55%{transform:rotate(0)}72%,90%{transform:rotate(-90deg)}100%{transform:rotate(0)}}
+  #rotateHint button{background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:2px 5px;line-height:1}
+  @media (orientation:portrait) and (pointer:coarse){ body:not(.norotate) #rotateHint{display:flex} }
 
   /* ---- Single JUMP control: a real bottom bar (board sits ABOVE it) ---- */
   .ctrl{flex:0 0 auto;align-self:center;
@@ -161,6 +171,7 @@
 </head>
 <body>
 <div id="app">
+  <div id="rotateHint"><span class="rot">⟳</span><span>Rotate your phone — Skitterlings plays best in landscape</span><button id="rotateX" aria-label="dismiss">✕</button></div>
   <div id="hud">
     <div class="badge"><span class="coin"></span><span id="coinCount">0</span></div>
     <div class="score-wrap"><div class="s" id="scoreNow">0</div><div class="l" id="stageLabel">Score</div></div>
@@ -1771,6 +1782,11 @@ function applyPickup(p) {
 }
 
 /* ---------- render ---------- */
+let _stageBgKey = "";
+function setStageBg(th) {
+  if (!th) return; const k = th.sky0 + th.sky1; if (k === _stageBgKey) return; _stageBgKey = k;
+  const s = document.getElementById("stage"); if (s) s.style.background = "linear-gradient(180deg," + th.sky0 + "," + th.sky1 + ")";
+}
 function lerpC(a, b, t) {
   const pa = a.match(/[\da-f]{2}/gi).map(h => parseInt(h, 16));
   const pb = b.match(/[\da-f]{2}/gi).map(h => parseInt(h, 16));
@@ -1778,6 +1794,7 @@ function lerpC(a, b, t) {
 }
 function render() {
   const A = themeById(G.stageA), B = themeById(G.stageB), bl = G.blend, th = activeTheme();
+  setStageBg(A);   // blend the letterbox bands into the current sky so the strip reads full-screen, not small
   ctx.setTransform(scale, 0, 0, scale, 0, 0);
   ctx.clearRect(0, 0, CFG.GW, CFG.GH);
   const shx = G.shake ? (Math.random() * 2 - 1) * G.shake : 0, shy = G.shake ? (Math.random() * 2 - 1) * G.shake : 0;
@@ -2266,6 +2283,7 @@ function toggleFs() {
   }
 }
 $("fsBtn").onclick = () => { try { toggleFs(); } catch (e) {} };
+$("rotateX").onclick = () => document.body.classList.add("norotate");
 ["fullscreenchange", "webkitfullscreenchange"].forEach(ev => document.addEventListener(ev, () => {
   const fs = document.fullscreenElement || document.webkitFullscreenElement;
   $("fsBtn").textContent = fs ? "⤡" : "⛶"; setTimeout(fitCanvas, 120);
@@ -2374,7 +2392,7 @@ window.addEventListener("message", e => { try { Bridge.handle(e); } catch (err) 
 
 /* Public API a same-origin host (or a window reference) can call directly. */
 window.SKITTERLINGS = {
-  version: "1.3.0-build7",
+  version: "1.3.1-build8",
   configure(cfg) {
     if (!cfg) return SK_CFG;
     if (cfg.parentOrigin) SK_CFG.parentOrigin = cfg.parentOrigin;
