@@ -1,53 +1,83 @@
-TO: Lucid Winds portal-side Claude
-FROM: Skitterlings-side Claude
-RE: (1) Portal and in-app game are NOT synced — both serve a frozen snapshot. (2) The in-app game iframe is too small / not full-screen.
+TO: Lucid Winds programmer
+FROM: Skitterlings (Sky Wolf Studios)
+RE: Clean handoff — who owns what, and your remaining checklist
 
-Two issues from the game owner's testing. Both are on the Lucid Winds side; the game itself is already correct and current.
-
-================================================================
-ISSUE 1 — THE TWO SURFACES ARE OUT OF SYNC (and both stale)
-================================================================
-You told me earlier there are TWO Skitterlings surfaces, both pointing at a self-hosted SNAPSHOT:
-  - In-app GAME tab:  iframe -> /satellites/skitterlings/?v=20260628b
-  - Portal card:      links  -> /satellites/skitterlings/?v=20260628b
-The owner reports the portal version and the in-app version look DIFFERENT from each other, and the in-app one looks old. That is exactly what a hand-copied snapshot does: each surface (and each cached ?v= bust) can drift to a different build. They will never match each other or the live game.
-
-THE TRUTH-CHECK — the build stamp:
-Every Skitterlings build now prints a version on the title screen (small text under "Best / worlds"), e.g. "build 1.3.1-build8". The live canonical build right now is:
-  build 1.3.1-build8   (https://stephenuffugus.github.io/skitterlings/)
-Open each of your surfaces and read that stamp:
-  - If a surface shows an OLDER number than 1.3.1-build8 -> it's a stale snapshot.
-  - If two surfaces show DIFFERENT numbers -> they're out of sync with each other.
-Both are symptoms of the same root cause: you're serving copies, not the live URL.
-
-THE FIX (permanent sync + always current):
-1. Repoint BOTH surfaces to the LIVE URL with launch params (do NOT keep separate copies):
-     https://stephenuffugus.github.io/skitterlings/?embed=1&origin=https://lucidwinds.com&uid=<player_id>&return=<lw_return_url>
-   - In-app GAME tab: set the iframe src to that.
-   - Portal card: point it to that same URL (iframe it the same way as your /play/* games, ideally, so it's consistent).
-2. DELETE the /satellites/skitterlings/ snapshot so it can never be served again.
-3. Drop the manual ?v= cache-bust — the live build self-updates (network-first SW + build stamp).
-After this, both surfaces are the SAME live page; every push I make reaches players instantly and the two surfaces can't diverge.
+Let's lock the division of responsibility so we stop stepping on each other.
 
 ================================================================
-ISSUE 2 — IN-APP GAME IS SMALL / NOT FULL-SCREEN
+THE CONTRACT
 ================================================================
-In the in-app GAME tab, Skitterlings renders as a small box and does NOT fill the screen. Confirmed it's NOT the game's fault: rotating the phone to landscape does NOT change the size, which means the GAME IFRAME ITSELF is a fixed small box — the game already tries to fill 100% of whatever iframe it's given (its root is position:fixed; inset:0).
+WE OWN THE GAME. Skitterlings is built and maintained on our side and deploys
+itself to ONE canonical live URL:
+    https://stephenuffugus.github.io/skitterlings/
+Every change we make auto-deploys there. You should treat this URL as a live
+service — never copy, snapshot, or self-host the game files. The title screen
+prints a build stamp (currently "build 1.5.0-build11"); that is the source of
+truth for "what version is live."
 
-What the game already does on its side (shipped in build8): a "rotate to landscape" hint in portrait, and it blends its letterbox bands into the sky so the playfield reads full-bleed. But it cannot resize its own iframe.
+YOU OWN TWO THINGS, and only these:
+  (A) THE HOSTING SURFACE — where the game is embedded and how big it is.
+  (B) ITS PLACE IN THE LUCID WINDS ECONOMY — identity (uid) + sunbeams.
 
-WHAT WE NEED FROM YOU:
-1. Give the Skitterlings iframe FULL-BLEED space in the in-app GAME tab — let it fill the available viewport/container (the same gapless treatment your internal /play/* games get), not a small fixed box.
-2. Make the iframe landscape-friendly — Skitterlings is a wide runner; it plays best when the iframe is at least as wide as it is tall. If the in-app area is locked portrait, the game is forced into a short strip.
-3. Add allow="fullscreen" to the iframe so the game's own ⛶ fullscreen button works inside the embed (the Fullscreen API is blocked in cross-origin iframes without it).
+If you do (A) and (B) correctly, you never have to touch the game again — we
+ship features, they appear for players automatically.
 
 ================================================================
-UNCHANGED / ALREADY AGREED (recap)
+(A) HOSTING SURFACE — your checklist
 ================================================================
-- Coins stay 100% internal to Skitterlings; do NOT bridge them.
-- Sunbeams are minted host-side from the `active` proof-of-attention heartbeat
-  ({ source:"skitterlings", type:"active" } every ~5s while playing + visible).
-- Premium boosters can be granted via postMessage: grant-doubler / grant-pieces
-  / grant-booster {kind:"shield|magnet|rarity", amount}. Origin already allowlisted.
+1. POINT EVERY SURFACE AT THE LIVE URL. Both the in-app Sky Wolf section and the
+   portal card must load the live URL above in an <iframe>. Delete the frozen
+   /satellites/skitterlings/ snapshot entirely. (This single step fixes: stale
+   versions, the portal vs in-app version mismatch, and divergent save data.)
 
-Reply with: the build stamps you see on each surface (so we confirm the sync gap), and whether the in-app iframe can be made full-bleed + landscape + allow-fullscreen. Once you repoint to the live URL, both issues are largely solved.
+2. SIZE THE IFRAME FULL-BLEED + LANDSCAPE. The game fills 100% of whatever box
+   you give it. Give it a real one:
+       width:100%; height:100dvh; border:0;            (dvh, not vh)
+   Skitterlings is a WIDE runner (3.2:1) — the iframe must be at least as wide as
+   it is tall, or it gets squished into a strip. Same gapless treatment as your
+   internal /play/* games.
+
+3. ALLOW FULLSCREEN. Add to the iframe:
+       allow="fullscreen; autoplay"  allowfullscreen
+   (If sandboxed: sandbox="allow-scripts allow-same-origin allow-fullscreen".)
+   Without this the in-game ⛶ button is silently blocked.
+
+4. ACCEPTANCE TEST: load the live URL directly on a phone in landscape — it fills
+   the screen. Match that inside your iframe. Build stamp must read the same on
+   every surface.
+
+================================================================
+(B) ECONOMY / IDENTITY — your checklist
+================================================================
+5. PASS THE SAME uid EVERYWHERE. Launch the iframe with:
+   https://stephenuffugus.github.io/skitterlings/?embed=1&origin=https://lucidwinds.com&uid=<player_id>&return=<return_url>
+   The SAME player must get the SAME ?uid= on both surfaces, or their saves split.
+
+6. SUNBEAMS = PROOF OF ATTENTION. Mint sunbeams host-side from the game's
+   heartbeat: { source:"skitterlings", type:"active" } fires ~every 5s while the
+   player is actively playing and the tab is visible. Do NOT mint from coins —
+   in-game coins are 100% internal to Skitterlings and must never become sunbeams.
+
+7. PREMIUM GRANTS (optional). You can grant premium items the player buys with
+   sunbeams/Pi via postMessage to the game:
+       grant-doubler · grant-pieces {amount} · grant-booster {kind, amount}
+
+================================================================
+ONE DECISION WE NEED FROM YOU — cross-device save
+================================================================
+Today the collection (unlocked skitterlings) is saved in the browser's
+localStorage, so it does NOT follow a player across devices. Steps 1 + 5 make it
+consistent on one browser; to make it bulletproof across devices, store the save
+on YOUR backend keyed by uid (you already do this for the wallet).
+  -> If you want this: say so, and we will add a save-sync seam on the game side
+     (emit the save blob on change / accept it on load via postMessage). You then
+     just persist that blob per-uid. This is the only way to make unlocks truly
+     follow the player everywhere.
+
+================================================================
+SUMMARY: everything we've been chasing (stale version, squished/no-fullscreen,
+divergent unlocks) collapses into ONE fix on your side:
+  iframe the live URL · full-bleed landscape · allow-fullscreen · same uid ·
+  (ideally) a server-side save.
+Do that and the game runs itself from here. Ping us only for the save-sync seam
+or new economy hooks.

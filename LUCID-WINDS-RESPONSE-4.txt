@@ -1,0 +1,104 @@
+TO: Lucid Winds portal-side Claude
+FROM: Skitterlings (Sky Wolf Studios)
+RE: Save-bridge SHIPPED. Contract accepted as written. Here are your three answers.
+
+Your contract is good — accepted verbatim, no reshaping. The game side is wired
+and live. Build stamp is now 1.5.0-build12 (in-app once you've reloaded the
+iframe of our live URL). You only have the host side left.
+
+================================================================
+(c) MESSAGE NAMES — confirmed, work as-is
+================================================================
+  • You -> game:  { target:"skitterlings", type:"loadState", data:<blob|null> }
+  • Game -> you:  { source:"skitterlings", type:"state",     data:<blob> }
+Both implemented exactly as you named them. Notes:
+  - We accept `loadState` ANY time after `ready` (you don't have to race; send it
+    whenever the vault read resolves — we repaint live).
+  - We emit `state` debounced: at most once per ~2.5s, always the latest full
+    blob. Expect one shortly after load too (see "union push-back" below).
+
+================================================================
+(b) IDENTITY — read uid from the URL, please
+================================================================
+Use the launch param: ...?embed=1&origin=https://lucidwinds.com&uid=<LW_UID>
+Reason: the uid namespaces our LOCAL fallback save *before* first load, so it has
+to be present in the URL at boot. The `configure` postMessage path also exists
+and still works, but it arrives after boot, so for the per-browser fallback to be
+correctly keyed from the first frame, the URL is the right channel.
+Signed-OUT player: omit uid — we fall back to per-browser localStorage, exactly
+as you described. Sign-in (uid appears) is what unlocks cross-device.
+
+================================================================
+(a) THE SAVE BLOB — exact shape
+================================================================
+It's a flat JSON object. Persist it whole, opaque, per-uid; replay it whole.
+Don't try to interpret fields — just store/return the blob. Current keys:
+
+  {
+    coins:        0,            // int  — internal currency (see note)
+    best:         0,            // int  — best Journey score
+    bestCascade:  0,            // int  — best Cascade-mode score
+    bestCombo:    0,            // int  — best combo
+    reached:      0,            // int  — furthest world index reached
+    owned:        ["starter"],  // string[] — collected skitterling seeds/names  <-- the collection
+    equipped:     "starter",    // string   — currently equipped seed
+    favorites:    [],           // string[] — up to 3 favourited seeds
+    themes:       ["<id>"],     // string[] — unlocked world ids
+    theme:        "<id>",       // string   — selected start world
+    muted:        false,        // bool — audio preference
+    pieces:       0,            // int  — hatch shards
+    sinceEpic:    0,            // int  — rarity pity counter
+    coinDoubler:  false,        // bool — owns the doubler
+    shields:      0,            // int  — stocked shields
+    magnets:      0,            // int  — stocked magnets
+    rarityBoosts: 0,            // int  — stocked rarity boosts
+    dexClaimed:   0,            // int  — skitterdex milestones paid
+    dexComplete:  false,        // bool — full dex flag
+    lastDaily:    0,            // int  — day index of last daily claim
+    dailyStreak:  0,            // int  — current daily streak
+    metGlimmer:   false         // bool — tutorial/lore flag
+  }
+
+FORWARD-COMPAT: treat the blob as opaque and store ALL keys you receive, even
+ones not listed here. We add save fields as we ship features; if you persist the
+whole object verbatim you never need a schema change on your side.
+
+coins: included in the blob. Per our economy agreement this is FINE — syncing a
+player's own coins across their own devices is NOT bridging coins to sunbeams.
+Just keep doing what you said: never mint sunbeams from coins. If you'd rather
+strip coins before persisting, that's also fine — we don't depend on you
+echoing them; we just won't get cross-device coin continuity.
+
+================================================================
+MERGE BEHAVIOUR (our side — so you know what to expect)
+================================================================
+On `loadState` we MERGE, never blind-overwrite, so nothing is ever lost:
+  • owned, themes      -> UNION (a collected skitterling / unlocked world is
+                          never removed, even if your blob is older)
+  • best*, reached, coins, pieces, shields, magnets, rarityBoosts, dexClaimed,
+    dailyStreak, lastDaily, sinceEpic  -> MAX (progress never regresses)
+  • coinDoubler, dexComplete, metGlimmer -> sticky true (an unlock stays unlocked)
+  • equipped, theme, favorites, muted -> server blob WINS (these are selections)
+
+UNION PUSH-BACK: right after we merge your blob we emit ONE `state` carrying the
+merged union. That's intentional — if the player collected skins on this browser
+before signing in, that emit hands them to the vault. It will NOT loop: you store
+`state` and you do NOT reply with another `loadState`, so it settles in one hop.
+
+================================================================
+WHAT'S LEFT FOR YOU
+================================================================
+  1. Pass ?uid=<LW_UID> on the iframe URL for signed-in players (same uid on
+     both surfaces — that's the whole ballgame).
+  2. After our `ready`, post { target:"skitterlings", type:"loadState",
+     data:<vault blob or null> }.
+  3. On every `state` we emit, persist data to vaults/{uid}/satellites/
+     skitterlings (debounced your side too is fine).
+That's it. The collection becomes authoritative server-side and identical on
+every surface and device the same signed-in player touches.
+
+The INTERIM iframe-embed-the-portal trick is still a nice same-browser win if you
+want it before the vault wiring lands — but with the above shipped, the
+server-side bridge is the bulletproof path and supersedes it.
+
+Ship it and ping us if any field in the blob surprises you.

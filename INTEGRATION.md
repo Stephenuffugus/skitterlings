@@ -31,7 +31,7 @@ Serve over **https** (the service worker + PWA install require it). That's the U
 
 - Saves are stored in `localStorage` under `skitterlings_save_v1`.
 - **Pass `?uid=<playerId>`** and the save key becomes `skitterlings_save_v1:<playerId>` automatically, giving each signed-in player their **own** save on shared devices. Use your existing Firebase Auth uid.
-- Saves are **per-browser** by default. For cross-device, either (a) point Skitterlings at the coin endpoints below (coins sync; cosmetics stay local), or (b) mirror the `skitterlings_save_v1:<uid>` blob to Firestore on your side (it's plain JSON). The game already keeps local-first; treat your store as the sync layer.
+- Saves are **per-browser** by default. For **cross-device**, use the save bridge: pass `?uid=`, then `loadState` the player's stored blob after `ready` and persist every `state` we emit per-uid (see §5). The game merges (never overwrites) and is local-first; treat your vault as the authoritative sync layer. (Legacy alt: mirror the `skitterlings_save_v1:<uid>` localStorage key — plain JSON — but the bridge is the supported path.)
 
 `uid` **must** arrive as a launch param because it namespaces the save *before* load. Everything else can be set later via `configure()` or `postMessage`.
 
@@ -142,13 +142,13 @@ send("configure", {
 - `.wallet` → `{ balance(), earn(n,reason), spend(n,reason)→bool, set(n) }` — drive the economy directly.
 - `.emit(type, data)` → emit a custom message to the host.
 - `.goBack()` → navigate to `returnUrl` and emit `navigate-back`.
-- `.version` → `"1.0.0"`.
+- `.version` → e.g. `"1.5.0-build12"` (shown as the title-screen build stamp; source of truth for "what's live").
 
 **Events emitted game → host** (`{ source:"skitterlings", type, data }`):
-`ready` · `run-start {world}` · `game-over {score,best,coins,world}` · `coins {balance,delta,reason}` · `world-unlocked {id,count}` · `navigate-back`.
+`ready` · `active {playing,world,score,t}` (heartbeat ~5s) · `run-start {world,mode}` · `game-over {score,best,coins,world,mode}` · `coins {balance,delta,reason}` · `world-unlocked {id,count}` · `state {…full save blob}` (debounced ~2.5s — the cross-device save seam) · `navigate-back`.
 
 **Commands accepted host → game** (`{ target:"skitterlings", type, data }`):
-`configure {…}` · `pause` · `resume` · `mute {muted}` · `grant-coins {amount}` · `to-menu`.
+`configure {…}` · `loadState {…save blob | null}` (host replays the vault blob; we merge — union owned/themes, max progress, server wins selections) · `pause` · `resume` · `mute {muted}` · `grant-coins {amount}` · `grant-doubler` · `grant-pieces {amount}` · `grant-booster {kind,amount}` · `to-menu`.
 
 ---
 

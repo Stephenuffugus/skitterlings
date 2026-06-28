@@ -1299,16 +1299,19 @@ function checkDexMilestones() {
 let save = Object.assign(defaultSave(), Store.get(SAVE_KEY, {}));
 // migrate / sanitize against current THEMES + ROSTER
 const VALID = new Set(THEMES.map(t => t.id));
-save.themes = (save.themes || []).filter(id => VALID.has(id));
-if (!save.themes.includes(THEMES[0].id)) save.themes.unshift(THEMES[0].id);
-if (!VALID.has(save.theme)) save.theme = THEMES[0].id;
-if (!Array.isArray(save.owned)) save.owned = ["starter"];
-if (!save.owned.includes("starter")) save.owned.unshift("starter");
-if (!save.owned.includes(save.equipped)) save.equipped = "starter";
-if (!Array.isArray(save.favorites)) save.favorites = [];
-save.favorites = save.favorites.filter(s => save.owned.includes(s)).slice(0, 3);
 const FAV_MAX = 3;
-function persist() { Store.set(SAVE_KEY, save); }
+function sanitizeSave() {
+  save.themes = (save.themes || []).filter(id => VALID.has(id));
+  if (!save.themes.includes(THEMES[0].id)) save.themes.unshift(THEMES[0].id);
+  if (!VALID.has(save.theme)) save.theme = THEMES[0].id;
+  if (!Array.isArray(save.owned)) save.owned = ["starter"];
+  if (!save.owned.includes("starter")) save.owned.unshift("starter");
+  if (!save.owned.includes(save.equipped)) save.equipped = "starter";
+  if (!Array.isArray(save.favorites)) save.favorites = [];
+  save.favorites = save.favorites.filter(s => save.owned.includes(s)).slice(0, FAV_MAX);
+}
+sanitizeSave();
+function persist() { Store.set(SAVE_KEY, save); Bridge.emitStateDebounced(); }
 function unlockWorld(id) { if (!save.themes.includes(id)) { save.themes.push(id); persist(); Bridge.emit("world-unlocked", { id: id, count: save.themes.length }); } }
 function isFav(seed) { return save.favorites.includes(seed); }
 function toggleFav(seed) {                      // max 3; adding a 4th bumps the oldest
@@ -2514,17 +2517,53 @@ const Wallet = {
   set(n) { save.coins = Math.max(0, n | 0); persist(); coinHud(); }
 };
 
+/* --- cross-surface / cross-device save bridge (Lucid Winds vault) ----------
+   The host persists our FULL save blob per signed-in uid and replays it via a
+   `loadState` message after our `ready`. We emit `state` (debounced) on every
+   meaningful change. Merge rule: NEVER regress the collection/progress — union
+   the owned/world arrays, max() the bests & currencies — and take the server's
+   selections (equipped/theme/favorites/prefs) as authoritative. Signed-out
+   players get no blob; we just keep the per-browser localStorage save.        */
+function applyServerState(blob) {
+  if (!blob || typeof blob !== "object") return;           // null = no server save yet → keep local
+  const uni = (a, b) => Array.from(new Set([].concat(Array.isArray(a) ? a : [], Array.isArray(b) ? b : [])));
+  const mx  = (k) => { const v = +blob[k]; if (Number.isFinite(v)) save[k] = Math.max(+save[k] || 0, v); };
+  save.owned  = uni(save.owned, blob.owned);               // union — a collected skitterling is never lost
+  save.themes = uni(save.themes, blob.themes);             // union — an unlocked world is never lost
+  ["best","bestCascade","bestCombo","reached","dexClaimed","coins","pieces",
+   "shields","magnets","rarityBoosts","dailyStreak","lastDaily","sinceEpic"].forEach(mx);
+  ["coinDoubler","dexComplete","metGlimmer"].forEach(k => { if (blob[k]) save[k] = true; });   // sticky unlocks: true wins
+  if (typeof blob.muted === "boolean") save.muted = blob.muted;                                 // a preference → server wins
+  if (VALID.has(blob.theme)) save.theme = blob.theme;
+  if (blob.equipped) save.equipped = blob.equipped;
+  if (Array.isArray(blob.favorites)) save.favorites = blob.favorites.slice();
+  sanitizeSave();
+  persist();          // store locally + push the merged UNION back so the vault gains anything we had offline
+  coinHud();
+  try { var mb = $("muteBtn"); if (mb) mb.textContent = save.muted ? "🔇" : "🔊"; } catch (e) {}
+  if (titleScreen.classList.contains("show")) toMenu();          // repaint title stats (best / worlds / fav bar)
+  else if (collScreen.classList.contains("show")) openCollection();  // repaint an open collection grid
+}
+
 /* postMessage bridge to the host frame (no-op when standalone). */
 const Bridge = {
+  _stateTimer: null,
   emit(type, data) {
     if (!SK_CFG.embedded) return;
     try { window.parent.postMessage({ source: "skitterlings", type: type, data: data || {} }, SK_CFG.parentOrigin); } catch (e) {}
+  },
+  /* Coalesce save writes: at most one `state` emit per ~2.5s, carrying the
+     latest full blob (save is sent by reference, snapshotted at fire time). */
+  emitStateDebounced() {
+    if (!SK_CFG.embedded || this._stateTimer) return;
+    this._stateTimer = setTimeout(() => { this._stateTimer = null; this.emit("state", save); }, 2500);
   },
   handle(ev) {
     if (SK_CFG.parentOrigin !== "*" && ev.origin !== SK_CFG.parentOrigin) return;   // origin lock
     const m = ev.data; if (!m || m.target !== "skitterlings") return;
     switch (m.type) {
       case "configure":   window.SKITTERLINGS.configure(m.data || {}); break;
+      case "loadState":   applyServerState(m.data); break;   // host replays the player's vault blob (or null)
       case "pause":       if (G.mode === "playing") G.mode = "paused"; break;
       case "resume":      if (G.mode === "paused") { G.mode = "playing"; last = 0; } break;
       case "mute":        save.muted = !!(m.data && m.data.muted); persist(); $("muteBtn").textContent = save.muted ? "🔇" : "🔊"; break;
@@ -2547,7 +2586,7 @@ window.addEventListener("message", e => { try { Bridge.handle(e); } catch (err) 
 
 /* Public API a same-origin host (or a window reference) can call directly. */
 window.SKITTERLINGS = {
-  version: "1.5.0-build11",
+  version: "1.5.0-build12",
   configure(cfg) {
     if (!cfg) return SK_CFG;
     if (cfg.parentOrigin) SK_CFG.parentOrigin = cfg.parentOrigin;
