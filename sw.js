@@ -1,6 +1,6 @@
 /* Skitterlings service worker — network-first for the page (so updates show on
    reload), cache-first for static assets; offline-capable either way. */
-const CACHE = "skitterlings-v10";
+const CACHE = "skitterlings-v11";
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg"];
 
 self.addEventListener("install", e => {
