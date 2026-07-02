@@ -229,6 +229,7 @@
       <button class="btn alt" id="hatchOpenBtn">Vault · Roll a Skitterling</button>
       <button class="btn alt" id="themesBtn">Worlds</button>
       <button class="btn alt" id="shopBtn">Boosters</button>
+      <button class="btn ghost" id="exitPortalBtn">← All Sky Wolf games</button>
     </div>
     <div class="center muted" style="margin-top:14px;font-size:11px">Best&nbsp;<span id="bestTitle">0</span> · <span id="worldsTitle">0</span> worlds</div>
     <div class="center" id="streakLine" style="font-size:11px;color:var(--gold);font-weight:700;margin-top:4px"></div>
@@ -2377,6 +2378,14 @@ $("segColl").onclick = () => { collMode = "owned"; openCollection(); };
 $("segDex").onclick = () => { collMode = "dex"; openCollection(); };
 $("themesBtn").onclick = openThemes;
 $("shopBtn").onclick = openShop;
+// The ONLY control that leaves the game — lives on the top menu. Embedded it
+// posts {sws:'close'} (+ legacy navigate-back) to the portal; standalone it
+// links to the studio portal. Never history.back(), never a blind navigation.
+$("exitPortalBtn").onclick = () => {
+  Bridge.emit("navigate-back", {});
+  if (window.SWS_EXIT) window.SWS_EXIT();
+  else { try { location.href = "https://lucidwinds.com/portal/"; } catch (e) {} }
+};
 $("detBack").onclick = () => { hide(detailScreen); openCollection(); };
 $("detEquip").onclick = () => { if (detailSeed) { save.equipped = detailSeed; persist(); renderFavBar(); updateDetailBtns(); toast("Equipped " + charName(detailSeed)); } };
 $("detFav").onclick = () => { if (detailSeed) { toggleFav(detailSeed); updateDetailBtns(); renderFavBar(); } };
@@ -2394,7 +2403,9 @@ $("oddsBtn").onclick = () => { const o = $("oddsBox"); const open = o.style.disp
 $("equipRolledBtn").onclick = () => { if (rolledSeed) { save.equipped = rolledSeed; persist(); renderFavBar(); toast("Equipped " + charName(rolledSeed)); } };
 $("favRolledBtn").onclick = () => { if (rolledSeed) { toggleFav(rolledSeed); refreshFavRolled(); renderFavBar(); } };
 document.querySelectorAll("[data-close]").forEach(b => b.onclick = () => {
-  [collScreen, themeScreen, hatchScreen].forEach(hide);
+  // Hide EVERY sub-screen (shopScreen was missing → its ✕ was a dead button:
+  // the shop stayed painted over the title and the game looked stuck/black).
+  [collScreen, detailScreen, themeScreen, shopScreen, hatchScreen].forEach(hide);
   if (G.mode === "over") show(overScreen);
   else { $("bestTitle").textContent = save.best; $("worldsTitle").textContent = save.themes.length; renderFavBar(); show(titleScreen); }
 });
@@ -2452,6 +2463,10 @@ $("rotateX").onclick = () => document.body.classList.add("norotate");
 if ("serviceWorker" in navigator && location.protocol.indexOf("http") === 0) {
   let __refreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
+    // Embedded in the portal iframe: NEVER navigate/reload the frame — a
+    // mid-session reload reads as a broken game (and trips the portal's
+    // stray-navigation recovery). The fresh build applies on next open.
+    if (/[?&]embed=1(&|$)/.test(location.search)) return;
     if (__refreshing) return; __refreshing = true; location.reload();
   });
   navigator.serviceWorker.register("sw.js").then(reg => {
@@ -2586,7 +2601,7 @@ window.addEventListener("message", e => { try { Bridge.handle(e); } catch (err) 
 
 /* Public API a same-origin host (or a window reference) can call directly. */
 window.SKITTERLINGS = {
-  version: "1.5.0-build12",
+  version: "1.5.1-build13",
   configure(cfg) {
     if (!cfg) return SK_CFG;
     if (cfg.parentOrigin) SK_CFG.parentOrigin = cfg.parentOrigin;
@@ -2599,7 +2614,15 @@ window.SKITTERLINGS = {
   },
   get wallet() { return Wallet; },           // host.SKITTERLINGS.wallet.balance() / earn() / spend() / set()
   emit(type, data) { Bridge.emit(type, data); },
-  goBack() { if (SK_CFG.returnUrl) { try { location.href = SK_CFG.returnUrl; } catch (e) {} } Bridge.emit("navigate-back", {}); }
+  goBack() {
+    // Embedded: NEVER navigate the iframe (a dead/blank navigation is the
+    // portal "black screen" bug) — leave via postMessage only. Legacy
+    // navigate-back + the studio-standard {sws:'close'} are both sent;
+    // the portal understands either and guards against double-close.
+    Bridge.emit("navigate-back", {});
+    if (window.SWS_EMBED) { try { window.parent.postMessage({ sws: "close" }, "*"); } catch (e) {} return; }
+    if (SK_CFG.returnUrl) { try { location.href = SK_CFG.returnUrl; } catch (e) {} }
+  }
 };
 
 function readLaunchParams() {
@@ -2628,6 +2651,25 @@ try { var __bs = document.getElementById("buildStamp"); if (__bs) __bs.textConte
 
 readLaunchParams(); fitCanvas(); toMenu(); requestAnimationFrame(frame);
 Bridge.emit("ready", { version: window.SKITTERLINGS.version });
+</script>
+<script>
+/* ===== Sky Wolf Studios embed protocol =====
+   The portal (lucidwinds.com/portal/) frames games with ?embed=1 and
+   listens for {sws:'ready'} and {sws:'close'}.
+   Rules when embedded:
+     - NEVER history.back() or navigate location — an iframe with no
+       history entry goes blank (the black-screen bug).
+     - The in-game back/X returns to the game's OWN menu screen.
+     - Only the menu's explicit exit control calls SWS_EXIT(). */
+(function(){
+  var SWS_EMBED=/[?&]embed=1(&|$)/.test(location.search);
+  window.SWS_EMBED=SWS_EMBED;
+  window.SWS_EXIT=function(){
+    if(SWS_EMBED&&parent!==window){try{parent.postMessage({sws:'close'},'*');}catch(e){} return;}
+    location.href='https://lucidwinds.com/portal/';
+  };
+  if(SWS_EMBED&&parent!==window){try{parent.postMessage({sws:'ready'},'*');}catch(e){}}
+})();
 </script>
 </body>
 </html>
